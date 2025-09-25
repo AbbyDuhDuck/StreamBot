@@ -1,9 +1,13 @@
 # -=-=- Stuff specific to this project -=-=- #
-/usr/
-/usr/secret
 
-!usr/example/
-!usr/example.bat
+# User Data 
+/usr/*
+/usr/secret/
+
+# Exempt the Example Setup
+!/usr/example/
+!/usr/example.bat
+
 
 # -=-=- Rest of the Git Ignore -=-=- #
 
