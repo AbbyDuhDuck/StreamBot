@@ -1,6 +1,9 @@
 # -=-=- Stuff specific to this project -=-=- #
-usr/
-usr/secret
+/usr/
+/usr/secret
+
+!usr/example/
+!usr/example.bat
 
 # -=-=- Rest of the Git Ignore -=-=- #
 
