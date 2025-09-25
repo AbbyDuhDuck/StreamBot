@@ -1,3 +1,9 @@
+# -=-=- Stuff specific to this project -=-=- #
+usr/
+usr/secret
+
+# -=-=- Rest of the Git Ignore -=-=- #
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
