@@ -1,6 +1,10 @@
 # StreamBot
 An event driven Bot for streaming on Twitch, YouTube, and potentially others.
 
+Usage:
+------ 
+`python main.py <user>`
+
 ---
 
 build/ - contains the current build of the bot or something.

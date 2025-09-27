@@ -1,7 +1,28 @@
+#! /usr/bin/env python3
+
+"""
+Single sentence description.
+
+This package provides functionality for... [TODO - add description] 
+
+Modules & Subpackages:
+----------------------
+- TODO
+
+Usage:
+------
+TODO
+"""
+
+# -=-=- Imports & Globals -=-=- #
+
 from typing import TYPE_CHECKING, override
 
 if TYPE_CHECKING:
     from .settings import UserSettings
+
+
+# -=-=- Functions and Classes -=-=- #
 
 class UserCommands:
     def __init__(self, settings:"UserSettings"):

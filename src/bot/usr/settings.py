@@ -1,7 +1,26 @@
+#! /usr/bin/env python3
 
+"""
+Single sentence description.
+
+This package provides functionality for... [TODO - add description] 
+
+Modules & Subpackages:
+----------------------
+- TODO
+
+Usage:
+------
+TODO
+"""
+
+# -=-=- Imports & Globals -=-=- #
 
 from .events import UserEvents, DefaultEvents
 from .commands import UserCommands, DefaultCommands
+
+
+# -=-=- Functions and Classes -=-=- #
 
 class UserSettings:
     name:str
@@ -16,8 +35,6 @@ class UserSettings:
             name:str,
             account_user:str,
             account_bot:str|None=None,
-            # commands:UserCommands=DefaultCommands,
-            # events:UserEvents=DefaultEvents,
     ):
         self.name = name
         self.account_user = account_user
@@ -27,3 +44,5 @@ class UserSettings:
         self.commands = self.commands(self)
         self.events = self.events(self)
 
+
+# EOF #
