@@ -1,13 +1,13 @@
 #! /usr/bin/env python3
 
 """
-The internal event system that connects different aspects of the bot.
+The internal signal system that connects different aspects of the bot.
 
-This package provides functionality for hooking into the event stream.
+This package provides functionality for hooking into the event signals.
 You can trigger or listen to events that get propogated to all attached
 listeners, and you can request data from connected services or connect 
 a service yourself. Connecting a service alows other parts of the code 
-to fetch data from your connected hook.
+to query data from your connected service.
 
 Modules & Subpackages:
 ----------------------
