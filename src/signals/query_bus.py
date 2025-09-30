@@ -19,12 +19,14 @@ TODO
 from typing import Coroutine, Protocol
 from uuid import uuid4, UUID
 
+from .exceptions import DuplicateQueryIDError, QueryNotFoundError, HandlerNotFoundError
+
 
 # -=-=- Functions and Classes -=-=- #
 
 
 class QueryData(Protocol):
-    """Data from a triggered event."""
+    """Data from a triggered query."""
     pass
 
 
@@ -82,7 +84,7 @@ class QueryBus:
 
     # -=-=- Register and Unregister -=-=- #
     
-    def register(self, name:str, handler:Coroutine) -> UUID:
+    def register(self, query:str, handler:Coroutine) -> UUID:
         """register a handler to a query"""
 
     def unregister(self, id:UUID):
@@ -90,12 +92,12 @@ class QueryBus:
 
     # -=-=- Trigger -=-=- #
 
-    async def query(self, name:str, data:QueryData) -> Response:
+    async def query(self, query:str, data:QueryData) -> Response:
         """trigger a query"""
 
     # -=-=- Exists -=-=- #
 
-    def query_exists(self, name:str) -> bool:
+    def query_exists(self, query:str) -> bool:
         """checks if a query exists"""
 
     def query_id_exists(self, id:UUID) -> bool:
@@ -109,10 +111,10 @@ class QueryBus:
     def get_query_name(self, id:UUID) -> str:
         """get the query name by id"""
 
-    def get_query_id(self, name:str) -> UUID:
+    def get_query_id(self, query:str) -> UUID:
         """get the query id by name"""
 
-    def set_query_id(self, id:UUID, name:str):
+    def set_query_id(self, id:UUID, query:str):
         """set a query id to the current name"""
         # Note: enforce no duplicate IDs
 
@@ -148,6 +150,7 @@ if __name__ == "__main__":
 
     # Optional: type checking class if you use Response base
     class SongResponse(Response):
+        # TODO - see about static typing the response from .get()
         user:str
         song:str
 
@@ -174,6 +177,7 @@ if __name__ == "__main__":
         result: SongResponse = Response(f"Hornet's current song is Silksong", user="Hornet", song="Silksong")
         
         # Access using our new Response API
+        print(result)             # <Response get="Hornet's current song is Silksong" all={'*': "Hornet's current song is Silksong", 'user': 'Hornet', 'song': 'Silksong'}>
         print(result.get())       # "Hornet's current song is Silksong"
         print(result.all())       # {'*': "Hornet's current song is Silksong", 'user': 'Hornet', 'song': 'Silksong'}
         print(result.user)        # "Hornet"
