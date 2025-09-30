@@ -19,6 +19,8 @@ TODO
 from typing import Coroutine, Protocol
 from uuid import uuid4, UUID
 
+from .exceptions import DuplicateEventIDError, ActionNotFoundError
+
 
 # -=-=- Functions and Classes -=-=- #
 
@@ -47,7 +49,7 @@ class EventBus:
 
     # -=-=- Register and Unregister -=-=- #
 
-    def register(self, name:str, callback:Coroutine) -> UUID:
+    def register(self, event:str, callback:Coroutine) -> UUID:
         """register a callback to an event"""
 
     def unregister(self, id:UUID):
@@ -55,42 +57,61 @@ class EventBus:
 
     # -=-=- Trigger -=-=- #
 
-    async def emit(self, name:str, data:EventData):
+    async def emit(self, event:str, data:EventData):
         """trigger an event"""
 
     # -=-=- Exists -=-=- #
 
-    def event_exists(self, name:str) -> bool:
+    def event_exists(self, event:str) -> bool:
         """checks if an event exists"""
+        return event in self.registered
 
-    def event_id_exists(self, id:UUID, name:str|None=None) -> bool:
+    def event_id_exists(self, id:UUID, event:str|None=None) -> bool:
         """checks if an event id exists in an event"""
+        if event is not None:
+            return id in self.registered[event]
+        return self.get_event_name(id) is not None
 
     def action_exists(self, id:UUID) -> bool:
         """checks if an action exists for a given id"""
+        return id in self.actions
 
     # -=-=- Getters and Setters -=-=- #
 
     def get_event_name(self, id:UUID) -> str:
         """get an event name from an ID it contains"""
+        for event in self.registered:
+            if id in self.registered[event]:
+                return event
 
-    def get_event_ids(self, name:str) -> list[UUID]:
+
+    def get_event_ids(self, event:str) -> list[UUID]:
         """get the event ids by name"""
+        return self.registered[event] if self.event_exists(event) else []
 
-    def add_event_id(self, id:UUID, name:str):
+    def add_event_id(self, id:UUID, event:str):
         """add an event id to the currently usable ones for that name"""
-        # Note: enforce no duplicate IDs
+        if self.event_id_exists(id):
+            raise DuplicateEventIDError(id, self.get_event_name(id))
+        if not self.event_exists(event): self.registered[event] = []
+        self.registered[event].append(id)
 
-    def remove_event_id(self, id:UUID, name:str|None=None):
+    def remove_event_id(self, id:UUID, event:str|None=None):
         """remove the id from the active events"""
+        if event is None: event = self.get_event_name(id)
+        if self.event_id_exists(id, event):
+            del self.registered[event][id]
 
     # -=-=- #
 
     def set_action(self, id:UUID, callback:Coroutine):
         """set the action for a defined event id"""
+        self.actions[id] = callback
 
     def remove_action(self, id:UUID):
         """remove the action from a defined event id"""
+        if not self.action_exists(id): return
+        del self.actions[id]
 
     # -=-=- #
 
