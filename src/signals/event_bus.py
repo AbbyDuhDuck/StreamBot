@@ -30,7 +30,6 @@ class EventData(Protocol):
     pass
 
 
-
 class EventBus:
     """
     Manages registering events and services as well as triggering and
@@ -51,15 +50,62 @@ class EventBus:
 
     def register(self, event:str, callback:Coroutine) -> UUID:
         """register a callback to an event"""
+        id = uuid4()
+        self.add_event_id(id, event)
+        self.set_action(id, callback)
+        return id
 
     def unregister(self, id:UUID):
         """unregister an event"""
+        self.remove_event_id(id)
+        self.remove_action(id)
 
     # -=-=- Trigger -=-=- #
 
-    async def emit(self, event:str, data:EventData):
-        """trigger an event"""
+    async def emit(self, event:str, data:EventData=object(), wait: bool = True, sequential: bool = False):
+        """
+        Trigger an event with optional blocking and sequential execution.
 
+        Parameters
+        ----------
+        event : str
+            The event to trigger.
+        data : EventData, optional
+            Data to pass to the handlers. Defaults to empty object.
+        wait : bool, optional
+            Should this emit call block program flow until handlers finish? Defaults to True.
+        sequential : bool, optional
+            Should handlers run one at a time? Defaults to False (all concurrently).
+        """
+        # -=- Waiting & Non-Sequential -=- #
+        if wait and not sequential:
+            [
+                print(f"Handler error: {result}")
+                for result in await asyncio.gather(
+                    *(action(data) for action in self.get_event_actions(event)),
+                    return_exceptions=True
+                )
+                if isinstance(result, Exception)
+            ]
+        # -=- Waiting & Sequential -=- #
+        elif wait and sequential:
+            for action in self.get_event_actions(event):
+                try: await action(data)
+                except Exception as e:
+                    print(f"Handler error: {e}")
+        # -=- Non-Waiting & Non-Sequential -=- #
+        elif not wait and not sequential:
+            [
+                asyncio.create_task(action(data)).add_done_callback(lambda task: 
+                    print(f"Handler error: {task.exception()}") 
+                    if task.exception() else None
+                ) 
+                for action in self.get_event_actions(event)
+            ]
+        # -=- Non-Waiting & Sequential -=- #
+        else:
+            asyncio.create_task(self.emit(event, data, wait=True, sequential=True))
+            
     # -=-=- Exists -=-=- #
 
     def event_exists(self, event:str) -> bool:
@@ -84,10 +130,20 @@ class EventBus:
             if id in self.registered[event]:
                 return event
 
-
     def get_event_ids(self, event:str) -> list[UUID]:
         """get the event ids by name"""
+        # maybe raise not found error?
         return self.registered[event] if self.event_exists(event) else []
+    
+    def get_event_actions(self, event:str) -> list[Coroutine]:
+        """get the event actions by name"""
+        return [self.get_action(id) for id in self.get_event_ids(event)]
+    
+    def get_action(self, id:UUID) -> Coroutine:
+        """get the event action by its id"""
+        if not self.action_exists(id):
+            raise ActionNotFoundError(id)
+        return self.actions[id]
 
     def add_event_id(self, id:UUID, event:str):
         """add an event id to the currently usable ones for that name"""
@@ -100,7 +156,10 @@ class EventBus:
         """remove the id from the active events"""
         if event is None: event = self.get_event_name(id)
         if self.event_id_exists(id, event):
-            del self.registered[event][id]
+            self.registered[event].remove(id)
+        if len(self.registered[event]) == 0:
+            del self.registered[event]
+
 
     # -=-=- #
 
@@ -135,6 +194,14 @@ if __name__ == "__main__":
         user: str
         amount: int
 
+    # decorated handler to test the async blocking
+    def wait_time(seconds:float):
+        async def func(_: BitsEvent):
+            await asyncio.sleep(seconds)
+            print(f"waited {seconds} seconds")
+        return func
+    
+    # handler
     async def bits_handler(event: BitsEvent):
         print(f"{event.user} donated {event.amount} bits!")
 
@@ -142,10 +209,23 @@ if __name__ == "__main__":
         bus = EventBus.get_instance()
 
         # Register the handler
+        event_id = bus.register("bits_donated", wait_time(5))
+        event_id = bus.register("bits_donated", wait_time(2))
+        event_id = bus.register("bits_donated", wait_time(1))
         event_id = bus.register("bits_donated", bits_handler)
 
         # Emit the event
-        await bus.emit("bits_donated", BitsEventData(user="GenericUser", amount=500))
+        print("Testing with non-waiting and non-sequential")
+        await bus.emit("bits_donated", BitsEventData(user="NonBlocking", amount=500), wait=False, sequential=False)
+        
+        print("Testing with waiting and non-sequential")
+        await bus.emit("bits_donated", BitsEventData(user="GenericUser", amount=500), wait=True, sequential=False)
+        
+        print("Testing with non-waiting and sequential")
+        await bus.emit("bits_donated", BitsEventData(user="GenericUser", amount=500), wait=False, sequential=True)
+
+        print("Testing with waiting and sequential")
+        await bus.emit("bits_donated", BitsEventData(user="GenericUser", amount=500), wait=True, sequential=True)
 
         # Cleanup
         bus.unregister(event_id)
