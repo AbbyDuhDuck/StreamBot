@@ -113,6 +113,12 @@ class QueryBus:
 
     def get_query_id(self, query:str) -> UUID:
         """get the query id by name"""
+    
+    def get_handler(self, id:UUID) -> Coroutine:
+        """get the query handler by its id"""
+        if not self.query_exists(id):
+            raise HandlerNotFoundError(id)
+        return self.handlers[id]
 
     def set_query_id(self, id:UUID, query:str):
         """set a query id to the current name"""
