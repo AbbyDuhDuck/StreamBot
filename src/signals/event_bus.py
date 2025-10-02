@@ -19,7 +19,7 @@ TODO
 from typing import Coroutine, Protocol
 from uuid import uuid4, UUID
 
-from .exceptions import DuplicateEventIDError, ActionNotFoundError
+from .exceptions import DuplicateEventIDError, ActionNotFoundError, EventNotFoundError, EventIDNotFoundError
 
 
 # -=-=- Functions and Classes -=-=- #
@@ -48,11 +48,11 @@ class EventBus:
 
     # -=-=- Register and Unregister -=-=- #
 
-    def register(self, event:str, callback:Coroutine) -> UUID:
-        """register a callback to an event"""
+    def register(self, event:str, action:Coroutine) -> UUID:
+        """register a action to an event"""
         id = uuid4()
         self.add_event_id(id, event)
-        self.set_action(id, callback)
+        self.set_action(id, action)
         return id
 
     def unregister(self, id:UUID):
@@ -142,7 +142,7 @@ class EventBus:
     def get_action(self, id:UUID) -> Coroutine:
         """get the event action by its id"""
         if not self.action_exists(id):
-            raise ActionNotFoundError(id)
+            raise ActionNotFoundError(id, self.get_event_name(id))
         return self.actions[id]
 
     def add_event_id(self, id:UUID, event:str):
@@ -163,9 +163,9 @@ class EventBus:
 
     # -=-=- #
 
-    def set_action(self, id:UUID, callback:Coroutine):
+    def set_action(self, id:UUID, action:Coroutine):
         """set the action for a defined event id"""
-        self.actions[id] = callback
+        self.actions[id] = action
 
     def remove_action(self, id:UUID):
         """remove the action from a defined event id"""
@@ -214,6 +214,8 @@ if __name__ == "__main__":
         event_id = bus.register("bits_donated", wait_time(1))
         event_id = bus.register("bits_donated", bits_handler)
 
+        print('# -=- Running Tests -=- #\n')
+
         # Emit the event
         print("Testing with non-waiting and non-sequential")
         await bus.emit("bits_donated", BitsEventData(user="NonBlocking", amount=500), wait=False, sequential=False)
@@ -221,11 +223,20 @@ if __name__ == "__main__":
         print("Testing with waiting and non-sequential")
         await bus.emit("bits_donated", BitsEventData(user="GenericUser", amount=500), wait=True, sequential=False)
         
+        await asyncio.sleep(1)
+        print('\n# -=-=- #\n')
+
         print("Testing with non-waiting and sequential")
         await bus.emit("bits_donated", BitsEventData(user="GenericUser", amount=500), wait=False, sequential=True)
 
         print("Testing with waiting and sequential")
         await bus.emit("bits_donated", BitsEventData(user="GenericUser", amount=500), wait=True, sequential=True)
+
+        await asyncio.sleep(1)
+        print('\n# -=-=- #\n')
+
+        print("Testing with defualt parameters")
+        await bus.emit("bits_donated", BitsEventData(user="GenericUser", amount=500))
 
         # Cleanup
         bus.unregister(event_id)
