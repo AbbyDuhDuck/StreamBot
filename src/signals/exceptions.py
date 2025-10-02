@@ -26,18 +26,28 @@ class DuplicateEventIDError(EventBusError):
         super().__init__(msg)
 
 
-# make into a warning
+class EventNotFoundError(EventBusError):
+    """Raised when trying to trigger or access a event that does not exist."""
+    def __init__(self, event):
+        super().__init__(f"Event ID '{event}' does not exist")
 
-# class EventNotFoundError(EventBusError):
-#     """Raised when trying to emit or access an event that does not exist."""
-#     def __init__(self, event):
-#         super().__init__(f"Event '{event}' does not exist")
+
+class EventIDNotFoundError(EventBusError):
+    """Raised when trying to trigger or access a event that does not exist."""
+    def __init__(self, event_id, event=None):
+        msg = f"Event ID {event_id} does not exist"
+        if event:
+            msg += f" for event '{event}'"
+        super().__init__(msg)
 
 
 class ActionNotFoundError(EventBusError):
     """Raised when no action is associated with a given event ID."""
-    def __init__(self, event_id):
-        super().__init__(f"No action found for event ID {event_id}")
+    def __init__(self, event_id, event=None):
+        msg = f"No action found for event ID {event_id}"
+        if event:
+            msg += f" for event '{event}'"
+        super().__init__(msg)
 
 
 # -=- QueryBus Errors -=- #
@@ -59,10 +69,22 @@ class DuplicateQueryIDError(QueryBusError):
 class QueryNotFoundError(QueryBusError):
     """Raised when trying to trigger or access a query that does not exist."""
     def __init__(self, query):
-        super().__init__(f"Query '{query}' does not exist")
+        super().__init__(f"Query ID '{query}' does not exist")
+
+
+class QueryIDNotFoundError(QueryBusError):
+    """Raised when trying to trigger or access a query that does not exist."""
+    def __init__(self, query_id, query=None):
+        msg = f"Query ID {query_id} does not exist"
+        if query:
+            msg += f" for query '{query}'"
+        super().__init__(msg)
 
 
 class HandlerNotFoundError(QueryBusError):
     """Raised when no handler is associated with a given query ID."""
-    def __init__(self, query_id):
-        super().__init__(f"No handler found for query ID {query_id}")
+    def __init__(self, query_id, query=None):
+        msg = f"No handler found for query ID {query_id}"
+        if query:
+            msg += f" for query '{query}'"
+        super().__init__(msg)
