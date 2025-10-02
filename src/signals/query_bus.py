@@ -212,10 +212,6 @@ if __name__ == "__main__":
         # result: Response = await bus.query("get_current_song", CurrentSongQueryData(user="Hornet"))
         result: SongResponse = await bus.query("get_current_song", CurrentSongQueryData(user="Hornet"))
 
-        #tmp response
-        # result: Response = Response(f"Hornet's current song is Silksong", user="Hornet", song="Silksong")
-        result: SongResponse = Response(f"Hornet's current song is Silksong", user="Hornet", song="Silksong")
-        
         # Access using our new Response API
         print(result)             # <Response get="Hornet's current song is Silksong" all={'*': "Hornet's current song is Silksong", 'user': 'Hornet', 'song': 'Silksong'}>
         print(result.get())       # "Hornet's current song is Silksong"
