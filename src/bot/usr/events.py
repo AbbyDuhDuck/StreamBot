@@ -30,8 +30,7 @@ class UserEvents:
         self.__register_events__()
 
     def __register_events__(self):
-        pass
-        # add a raised error
+        raise NotImplementedError("UserEvents must implement __register_events__")
 
 
 class DefaultEvents(UserEvents):

@@ -30,8 +30,7 @@ class UserCommands:
         self.__register_commands__()
 
     def __register_commands__(self):
-        pass
-        # add a raised error
+        raise NotImplementedError("UserCommands must implement __register_commands__")
 
 
 class DefaultCommands(UserCommands):
