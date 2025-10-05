@@ -108,10 +108,47 @@ class ConfigClass:
 
 C = TypeVar("C", bound=ConfigClass)
 
-def serviceclass(cls):
-    config_type = getattr(cls, "__orig_bases__", [None])[0].__args__[0]
-    cls.Config = config_type
-    return cls
+def serviceclass(arg=None, *, name:str|None=None):
+    """
+    Decorator for defining a service class. 
+    If `name` is provided, the service is automatically registered.
+    
+    Can be used as:
+      @serviceclass
+      class MyService: ...
+
+    or:
+      @serviceclass()
+      class MyService: ...
+
+    or:
+      @serviceclass("name")
+      class MyService: ...
+
+    or:
+      @serviceclass(name="name")
+      class MyService: ...
+
+    """
+    # correct for positional arg passed like @serviceclass("name")
+    if isinstance(arg, str):
+        name = arg
+        arg = None
+    # -=-=- #
+    def wrap(cls):
+        # add the Config type for its definition
+        config_type = getattr(cls, "__orig_bases__", [None])[0].__args__[0]
+        cls.Config = config_type
+        # register the class if name is provided 
+        if name: register(name)(cls)
+        # -=-=- #
+        return cls
+    # Allow decorator to be used with or without parentheses
+    if arg is None:
+        return wrap
+    else:
+        return wrap(arg)
+
 
 class BaseService(ABC, Generic[C]):
     """Abstract Service Base Class for internal and user defined services to build upon"""
@@ -218,8 +255,10 @@ async def main():
 
     # -=-=- Service Class -=-=- #
 
-    @serviceclass
-    @register("obs")
+    # @serviceclass
+    # @serviceclass()
+    @serviceclass("obs")
+    # @serviceclass(name="obs")
     class OBSService(BaseService[OBSConfig]):
         async def start(self):
             print(f"Starting OBS at {self.config.host}:{self.config.port} -- pass:{self.config.password}")
