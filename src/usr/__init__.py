@@ -20,4 +20,12 @@ Usage:
 TODO
 """
 
+# -=-=- Imports & Globals -=-=- #
+
+from .settings import UserSettings
+from .events import UserEvents
+from .commands import UserCommands
+from .services import UserServices
+
+
 # EOF #

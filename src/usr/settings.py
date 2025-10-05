@@ -18,6 +18,7 @@ TODO
 
 from .events import UserEvents, DefaultEvents
 from .commands import UserCommands, DefaultCommands
+from .services import UserServices
 
 
 # -=-=- Functions and Classes -=-=- #
@@ -43,6 +44,7 @@ class UserSettings:
     def run(self):
         self.commands = self.commands(self)
         self.events = self.events(self)
+        # TODO start user services
 
 
 # EOF #

@@ -18,4 +18,12 @@ Usage:
 TODO
 """
 
+# -=-=- Imports & Globals -=-=- #
+
+from .base import BaseService, serviceclass
+from .config import ConfigClass, configclass
+from .registry import register, SERVICE_REGISTRY
+
+from . import builtin
+
 # EOF #
