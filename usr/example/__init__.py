@@ -4,7 +4,7 @@
 
 # -=-=- Imports & Globals -=-=- #
 
-from src.bot import UserSettings
+from streambot.usr import UserSettings
 
 # from .commands import CustomCommands
 # from .events import CustomEvents
