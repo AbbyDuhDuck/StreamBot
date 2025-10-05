@@ -16,7 +16,7 @@ import sys
 import importlib
 from pathlib import Path
 
-from bot import UserSettings
+from .usr import UserSettings
 
 # Add project root (one level above src/) to sys.path
 ROOT = Path(__file__).resolve().parent.parent
@@ -58,7 +58,7 @@ def main():
     try:
         user_module = importlib.import_module(f"{user}")
     except ModuleNotFoundError as e:
-        # print(e)
+        print(e)
         print(f"No such user module: {user}")
         sys.exit(1)
 

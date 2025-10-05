@@ -19,4 +19,8 @@ config files in `usr/<name>` - there is an example setup included to
 show how to expand the usage and functionallity of the bot.
 """
 
+from . import service
+from . import signals
+from . import usr
+
 # EOF #
