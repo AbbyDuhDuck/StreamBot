@@ -1,8 +1,8 @@
 # Stream Bot (unnamed)
+An event driven bot creation framework for use alongside livestreaming and content creation on Twitch, YouTube, and potentially other platforms in the future. 
+Intended to be used as a backend library for a user to create any type of livestreaming adjacent tool, it can also be used as a stand alone content creation bot, and has interfaces for connecting to a wide variaty of livestreaming tools that are currently in use. 
 
-An event driven bot creation framework for use alongside streaming on Twitch, YouTube, and potentially others.
-
-Intended to be used as a backend for a streaming bot tool.
+A standard frontend UI is planned for the future.
 
 Usage:
 ------ 
