@@ -37,7 +37,7 @@ def main():
     
     Usage:
     ------ 
-    `python main.py <user>`
+    `python -m streambot <user>`
     
     The user is the profile that is to be launched is to be located in 
     `usr/<user>/__init__.py` and a `SETTINGS:UserSettings` variable
