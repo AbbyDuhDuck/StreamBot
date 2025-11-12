@@ -20,6 +20,12 @@ from typing import Any
 import asyncio
 
 from ..service import BaseService, SERVICE_REGISTRY
+from ..signals import EventBus
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .settings import UserSettings
 
 # -=-=- Classes -=-=- #
 
@@ -28,9 +34,12 @@ class UserServices:
     active:dict[str, BaseService] = {}
     registered:dict[str, type[BaseService]] = {}
 
-    def __init__(self):
+    settings:"UserSettings"
+
+    def __init__(self, settings:"UserSettings"):
         self.active:dict[str, BaseService] = {}
         self.registered:dict[str, type[BaseService]] = SERVICE_REGISTRY.copy()
+        self.settings = settings
 
     def enable(self, name:str, config:Any|None = None, **kwargs):
         if name not in self.registered:
@@ -84,6 +93,18 @@ class UserServices:
     def register(self, name:str, service:type[BaseService]):
         """Register a service"""
         self.registered[name] = service
+
+    
+    def register_user_events(self):
+        for name in self.active:
+            self.register_service_user_events(name)
+
+    def register_service_user_events(self, name):
+        if name not in self.active: return
+        # -=-=- #
+        def empty(event_bus:EventBus, service:BaseService): #return
+            print(f'There is no user events for service "{name}" in user events (usr.services)')
+        getattr(self.settings.events, f'register_{name}_events', empty)(EventBus.get_instance(), self.active[name])
 
 
 # -=-=- MAIN (for testing) -=-=- #

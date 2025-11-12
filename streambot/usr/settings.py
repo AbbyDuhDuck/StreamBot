@@ -19,6 +19,7 @@ TODO
 from .events import UserEvents, DefaultEvents
 from .commands import UserCommands, DefaultCommands
 from .services import UserServices
+import asyncio
 
 
 # -=-=- Functions and Classes -=-=- #
@@ -30,6 +31,7 @@ class UserSettings:
 
     commands:UserCommands=DefaultCommands
     events:UserEvents=DefaultEvents
+    services:UserServices
 
     def __init__(
             self,
@@ -41,10 +43,18 @@ class UserSettings:
         self.account_user = account_user
         self.account_bot = account_bot
 
+        self.services = UserServices(self)
+
     def run(self):
+        asyncio.run(self._run_async())
+
+    async def _run_async(self):
         self.commands = self.commands(self)
         self.events = self.events(self)
-        # TODO start user services
+
+        self.services.register_user_events()
+        await self.services.start_all()
+
 
 
 # EOF #
