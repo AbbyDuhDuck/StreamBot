@@ -22,6 +22,8 @@ from typing import TypeVar, Generic
 from .config import ConfigClass
 from .registry import register
 
+from ..signals import EventBus, QueryBus
+
 
 # -=-=- Functions & Classes -=-=- #
 
@@ -77,6 +79,8 @@ class BaseService(ABC, Generic[C]):
 
     def __init__(self, config:C|None = None):
         self.config:C = config or self.Config()
+        self.__register_events__(EventBus.get_instance())
+        self.__register_queries__(QueryBus.get_instance())
 
     def configure(self, config:C):
         """Update the service's config."""
@@ -87,6 +91,12 @@ class BaseService(ABC, Generic[C]):
 
     @abstractmethod
     async def stop(self): ...
+
+    def __register_events__(self, event_bus:EventBus):
+        pass
+    
+    def __register_queries__(self, query_bus:QueryBus):
+        pass
 
 
 # EOF #
