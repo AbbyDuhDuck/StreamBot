@@ -81,6 +81,15 @@ class QueryBus:
         if QueryBus._instance_ is None:
             QueryBus._instance_ = QueryBus()
         return QueryBus._instance_
+    
+    # -=-=- Helpers -=-=- #
+
+    @staticmethod
+    def lambda_handler(handler:Coroutine) -> Coroutine:
+        async def func(data:QueryData) -> Response:
+            return handler(data)
+        return func
+
 
     # -=-=- Register and Unregister -=-=- #
     
@@ -169,7 +178,8 @@ class QueryBus:
         if not self.handler_exists(id): return
         del self.handlers[id]
 
-    # -=-=- #
+
+    
 
 
 # -=-=- Main -=-=- #

@@ -46,6 +46,15 @@ class EventBus:
             EventBus._instance_ = EventBus()
         return EventBus._instance_
 
+    # -=-=- Helpers -=-=- #
+
+    @staticmethod
+    def lambda_action(action:Coroutine) -> Coroutine:
+        async def func(event:EventData):
+            action(event)
+        return func
+    
+    
     # -=-=- Register and Unregister -=-=- #
 
     def register(self, event:str, action:Coroutine) -> UUID:
@@ -172,7 +181,8 @@ class EventBus:
         if not self.action_exists(id): return
         del self.actions[id]
 
-    # -=-=- #
+
+    
 
 
 
