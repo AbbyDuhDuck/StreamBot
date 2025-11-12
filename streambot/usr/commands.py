@@ -16,6 +16,7 @@ TODO
 
 # -=-=- Imports & Globals -=-=- #
 
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, override
 
 if TYPE_CHECKING:
@@ -24,19 +25,18 @@ if TYPE_CHECKING:
 
 # -=-=- Functions and Classes -=-=- #
 
-class UserCommands:
+class UserCommands(ABC):
     def __init__(self, settings:"UserSettings"):
         self.settings = settings
-        self.__register_commands__()
+        self.register_commands()
 
-    def __register_commands__(self):
-        raise NotImplementedError("UserCommands must implement __register_commands__")
+    @abstractmethod
+    def register_commands(self): ...
 
 
 class DefaultCommands(UserCommands):
     def __init__(self, settings:"UserSettings"):
         super().__init__(settings)
 
-    @override
-    def __register_commands__(self):
+    def register_commands(self):
         print('Registering Default Commands')

@@ -16,6 +16,7 @@ TODO
 
 # -=-=- Imports & Globals -=-=- #
 
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, override
 
 if TYPE_CHECKING:
@@ -24,19 +25,17 @@ if TYPE_CHECKING:
 
 # -=-=- Functions and Classes -=-=- #
 
-class UserEvents:
+class UserEvents(ABC):
     def __init__(self, settings:"UserSettings"):
         self.settings = settings
-        self.__register_events__()
+        self.register_events()
 
-    def __register_events__(self):
-        raise NotImplementedError("UserEvents must implement __register_events__")
-
+    @abstractmethod
+    def register_events(self): ...
 
 class DefaultEvents(UserEvents):
     def __init__(self, settings:"UserSettings"):
         super().__init__(settings)
 
-    @override
-    def __register_events__(self):
+    def register_events(self):
         print('Registering Default Events')
