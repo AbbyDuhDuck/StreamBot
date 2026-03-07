@@ -43,9 +43,9 @@ class OBSConfig(ConfigClass):
 
 # import secret
 import asyncio
-import obsws_python as obs
 import socket
-
+import obsws_python as obs
+from obsws_python.error import OBSSDKError
 
 # -=-=- Function -=-=- #
 
@@ -60,6 +60,10 @@ def check_socket(host,port,timeout=2):
        sock.close()
        return True
 
+def censor_password(password:str|None) -> str:
+    if not password: return None
+    if len(password) <= 10: return "*" * len(password)
+    return "*" * len(password[:-4]) + password[-4:]
 
 # -=-=- Classes -=-=- #
 
@@ -69,7 +73,8 @@ class OBSService(BaseService[OBSConfig]):
     client:obs.ReqClient = None
 
     async def start(self):
-        print(f"Starting OBS at {self.config.host}:{self.config.port} -- pass:{self.config.password}")
+        print(f"Starting OBS at {self.config.host}:{self.config.port} -- pass:{censor_password(self.config.password)}")
+        self.connect()
 
     async def stop(self):
         print("Stopping OBS")
@@ -83,11 +88,17 @@ class OBSService(BaseService[OBSConfig]):
     def connect(self):
         if self.connected: return
         if not check_socket(host=self.config.host, port=self.config.port):
-            print("Failed to connect to OBS")
+            print("Failed to connect to OBS: could not reach OBS WebSocket server at", f"{self.config.host}:{self.config.port}")
             return
         # -=-=- #
-        self.client:obs.ReqClient = obs.ReqClient(host=self.config.host, port=self.config.port, password=self.config.password, timeout=3)
-        self._connected = True
+        try:
+            self.client:obs.ReqClient = obs.ReqClient(host=self.config.host, port=self.config.port, password=self.config.password, timeout=3)
+        except OBSSDKError as e:
+            # print("Failed to connect to OBS:", e)
+            return
+        # -=-=- #
+        print("Successfully connected to OBS WebSocket server at", f"{self.config.host}:{self.config.port}")
+        self._connected = self.client is not None
         
     def check_connection(self) -> bool:
         self.connect()
@@ -95,14 +106,14 @@ class OBSService(BaseService[OBSConfig]):
     
     # -=-=- #
 
-    def __register_events__(self, event_bus):
+    def __register_events__(self, event_bus:EventBus):
         event_bus.register('OBSMute', EventBus.lambda_action(lambda _: self.mute_mic()))
         event_bus.register('OBSUnmute', EventBus.lambda_action(lambda _: self.unmute_mic()))
         
         event_bus.register('OBSEnableItem', self.event_set_item_enabled)
         event_bus.register('OBSDisableItem', self.event_set_item_disabled)
         
-    def __register_queries__(self, query_bus):
+    def __register_queries__(self, query_bus:QueryBus):
         query_bus.register(
             'GetServiceOBS', 
             QueryBus.lambda_handler(lambda _: Response(self, service=self))
@@ -150,14 +161,17 @@ class OBSService(BaseService[OBSConfig]):
         return GetItemIDResponse(scene=data.scene, id=id)
 
 
+@dataclass
 class GetItemIDData(QueryData):
     scene:str
     item:str
 
+@dataclass
 class GetItemIDResponse(Response):
     scene:str
     id:int
 
+@dataclass
 class EnabledItemData(EventData):
     scene:str
     id:int
