@@ -4,6 +4,10 @@
 /usr/*
 /usr/secret/
 
+# TMP Files
+/tmp/*
+*.tmp
+
 # Exempt the Example Setup
 !/usr/example/
 !/usr/example.bat
