@@ -120,6 +120,7 @@ class SoundService(BaseService[SoundConfig]):
         # event_bus.register("BotStop", self.event_on_stop)
         event_bus.register("PlayTTS", self.event_play_tts)
         event_bus.register("PlaySFX", self.event_play_sfx)
+        event_bus.register("AddSFX", self.event_add_sfx)
         
     def __register_queries__(self, query_bus:QueryBus):
         query_bus.register(
@@ -176,6 +177,9 @@ class SoundService(BaseService[SoundConfig]):
         # -=-=- #
         self.sound_effects[data.name].play()
 
+    async def event_add_sfx(self, data:"AddSFXData"):
+        self.add_sfx(data.name, data.filepath, data.volume)
+
 
 @dataclass
 class PlayTTSData(EventData):
@@ -185,4 +189,10 @@ class PlayTTSData(EventData):
 class PlaySFXData(EventData):
     name:str
 
+@dataclass
+class AddSFXData(EventData):
+    name:str
+    filepath:str
+    volume:float = 1.0
+    
 # EOF #
