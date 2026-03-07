@@ -21,6 +21,7 @@ from uuid import uuid4, UUID
 
 from .exceptions import DuplicateEventIDError, ActionNotFoundError, EventNotFoundError, EventIDNotFoundError
 
+import asyncio
 
 # -=-=- Functions and Classes -=-=- #
 
