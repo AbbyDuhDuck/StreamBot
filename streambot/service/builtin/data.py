@@ -1,0 +1,1 @@
+# managing storing general stream data and global values
