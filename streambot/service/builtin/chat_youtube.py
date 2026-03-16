@@ -42,6 +42,21 @@ from .chat import MessageOutData, Platform
 
 # -=-=- Functions & Classes -=-=- #
 
+def pytchat_exception_handler(
+    loop: asyncio.AbstractEventLoop,
+    context: dict[str, Any],
+) -> None:
+    exc = context.get("exception")
+
+    if isinstance(exc, asyncio.CancelledError):
+        return
+
+    loop.default_exception_handler(context)
+
+def parse_timestamp(timestamp:str) -> int:
+    dt = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+    return int(dt.timestamp() * 1000)
+
 class ReusableAsyncClient(httpx.AsyncClient):
     async def __aenter__(self):
         return self
@@ -63,7 +78,7 @@ class SetYouTubeIDData(EventData):
 
 @dataclass
 class YouTubeChatMessageData(EventData):
-    timestamp:datetime
+    timestamp:int
     message:str
     user:str
     user_id:str
@@ -94,13 +109,16 @@ class YouTubeService(BaseService[YouTubeConfig]):
         print("Stopping YouTube Service")
         if self.livechat is not None and self.livechat.is_alive():
             self.livechat.terminate()
+            self.livechat.listen_task.cancel()
         # -=-=- #
         try:
             self.livechat.raise_for_status()
         except ChatDataFinished:
             print("Chat data finished.")
         except Exception as e:
-            print(type(e), str(e))
+            pass
+            # print(type(e), str(e))
+        print("YouTube Stopped.")
     
     # -=-=- #
 
@@ -121,9 +139,11 @@ class YouTubeService(BaseService[YouTubeConfig]):
         print(f"Starting YouTube Livechat on ID: {id}")
         livechat = self.livechat = LiveChatAsync(
             id,
-            # interruptable=False,
+            interruptable=False,
             client=self.livechat_client,
-            callback=self.chat_callback
+            callback=self.chat_callback,
+            exception_handler=pytchat_exception_handler
+
         )
         return livechat
 
@@ -133,7 +153,7 @@ class YouTubeService(BaseService[YouTubeConfig]):
             await data.tick_async() # AWK
 
     async def youtube_chat_callback(self, data):
-        print(f"{data.datetime} [{data.author.name}]-{data.message} {data.amountString}")
+        # print(f"{data.datetime} [{data.author.name}]-{data.message} {data.amountString}")
         user:str = data.author.name
         if user.startswith('@'): user = user[1:]
         # replace with dedicated function and store them incase missing (happens)
@@ -141,7 +161,7 @@ class YouTubeService(BaseService[YouTubeConfig]):
         if isinstance(emotes[0], str): emotes=[]
         # -=-=- #
         await self.event_bus.emit("YouTubeChatMessage", YouTubeChatMessageData(
-            timestamp=data.datetime,
+            timestamp=parse_timestamp(data.datetime),
             message=data.message,
             user=user,
             user_id=data.author.channelId,
