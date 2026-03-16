@@ -1,0 +1,57 @@
+<script>
+$(document).ready(() => { 
+    // Connect to the WebSocket server
+    const ws = new WebSocket("ws://127.0.0.1:13337/ws/livedata");
+
+    ws.addEventListener("open", () => {
+        console.log("Connected to livedata WebSocket");
+    });
+
+    // Listen for stop time updates from Python
+    ws.addEventListener("message", (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            console.log("Received message from WebSocket:", data);
+
+            if (data.event === "update") {
+                console.log("Received update:", data.message);
+                $("#twitch-viewers").html(data.message['twitch-viewers'] ?? 0)
+                $("#youtube-viewers").html(data.message['youtube-viewers'] ?? 0)
+            }
+        } catch (err) {
+            console.error("Failed to parse WS message:", err);
+        }
+    });
+
+    ws.addEventListener("close", () => {
+        console.log("WebSocket disconnected");
+    });
+});
+</script>
+<style>
+    #livedata-widget {
+        order: 998;
+    }
+
+    #livedata {
+        margin: 0px 6px;
+        {# margin-bottom: -6px; #}
+    }
+    #livedata>*{
+        margin-bottom: 3px;
+    }
+    #livedata>*:last-child {
+        margin-bottom: 0px;
+    }
+
+    #livedata i {
+        padding: 0px 6px;
+    }
+</style>
+
+<div id="livedata">
+    <p>Live Data:</p>
+    <div>
+        <div><i class="fa fa-twitch"></i><span id="twitch-viewers">0</span><i class="fa fa-youtube-play"></i><span id="youtube-viewers">0</span></div>
+    </div>
+</div>

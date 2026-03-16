@@ -74,7 +74,7 @@ class SoundCommandsService(BaseService[ConfigClass]):
     # -=-=- #
 
     def __register_events__(self, event_bus):
-        event_bus.register("ChatMessageIn", self.event_chat_message_in)
+        event_bus.register("ChatMessage", self.event_chat_message)
         event_bus.register("SetSoundCommand", self.event_set_sound_command)
         event_bus.register("SetSoundGroup", self.event_set_sound_group)
         event_bus.register("SetSoundTrigger", self.event_set_sound_trigger)
@@ -157,9 +157,7 @@ class SoundCommandsService(BaseService[ConfigClass]):
 
     # -=-=- Events -=-=- #
 
-    async def event_chat_message_in(self, data:"ChatMessageData"):
-        print(f'Chat Message In from {data.user}: {data.message}')
-        # -=-=- #
+    async def event_chat_message(self, data:"ChatMessageData"):
         await self.try_sound_command(data.message, data.user)
         
 

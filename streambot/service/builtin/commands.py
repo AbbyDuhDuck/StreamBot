@@ -24,7 +24,7 @@ from .chat import ChatMessageData, MessageOutData
 from .sound import PlayTTSData
 from .chat_twitch import SetGameData
 from .chat_youtube import SetYouTubeIDData
-from .gui import DisplayOutData
+from .webui.webui import DisplayOutData
 
 from .. import ConfigClass, configclass, BaseService, serviceclass
 from ...signals import EventBus, EventData, QueryBus, QueryData, Response
@@ -44,7 +44,10 @@ import asyncio
 
 # -=-=- Function -=-=- #
 
-
+def parse_command(message:str) -> tuple[str, str]:
+    cmd = message.split()[0][1:].lower()
+    args = " ".join(message.split()[1:])
+    return cmd, args
 
 # -=-=- Classes -=-=- #
 
@@ -73,8 +76,8 @@ class CommandsService(BaseService[ConfigClass]):
     # -=-=- #
 
     def __register_events__(self, event_bus):
-        event_bus.register("ChatMessageIn", self.event_chat_message_in)
-        event_bus.register("ChatCommandIn", self.event_chat_command_in)
+        event_bus.register("ChatMessage", self.event_chat_message)
+        event_bus.register("ChatCommand", self.event_chat_command)
         
     def __register_queries__(self, query_bus):
         # query_bus.register(
@@ -154,20 +157,19 @@ class CommandsService(BaseService[ConfigClass]):
 
     # -=-=- Events -=-=- #
 
-    async def event_chat_message_in(self, data:"ChatMessageData"):
+    async def event_chat_message(self, data:"ChatMessageData"):
         if not data.message.startswith("!"): return
         # -=-=- #
-        cmd = data.message.split()[0][1:].lower()
-        args = " ".join(data.message.split()[1:])
-        await EventBus.get_instance().emit("ChatCommandIn", CommandInData(command=cmd, args=args, user=data.user))
+        cmd, args = parse_command(data.message)
+        await EventBus.get_instance().emit("ChatCommand", ChatCommandData(command=cmd, args=args, user=data.user))
 
-    async def event_chat_command_in(self, data:"CommandInData"):
+    async def event_chat_command(self, data:"ChatCommandData"):
         # print(f'Chat Command In from {data.user}: {data.command} {data.args}')
         await self.use_command(data.user, data.command, data.args)
 
 
 @dataclass
-class CommandInData(EventData):
+class ChatCommandData(EventData):
     command:str
     args:str
     user:str

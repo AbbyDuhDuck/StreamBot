@@ -1,0 +1,102 @@
+#chat-widget {
+    /* display: flex; */
+    /* flex-direction: column; */
+    flex: 1;
+    order: 999;
+    min-height: 0;
+
+    padding-top: 0px;
+    padding-bottom: 6px;
+}
+
+.message-container {  
+    background-color: #222;
+    border: 2px solid #111;
+    border-radius: 6px;
+    margin: 6px;
+    padding: 0px;
+    
+    color: white;
+    
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.message-container >*:hover {
+    background-color: #333;
+}
+
+.message {
+    /* width: 100%; */
+    margin: 3px 0px;
+
+    padding: 0px 6px;
+    
+    word-wrap: normal;
+}
+.message:hover {
+    background-color: #444;
+}
+
+.message .user {
+    display: inline-flex;
+    gap: 3px;
+}
+.message .user .badges {
+    display: inline-flex;
+    gap: 3px;
+}
+.message .username::after {
+    /* display: inline-block; */
+    content: " //";
+}
+
+.message .username[has-ads="false"]::after {
+    /* display: inline-block; */
+    content: " ///";
+}
+
+.message .content {
+    display: inline-block;
+    
+}
+
+.message .fa-twitch {
+    color: #9146FF;
+}
+.message .fa-youtube-play {
+    color: #FF0000;
+}
+    
+.notification {
+    background-color: #2a2a2a;
+
+    border-left: 3px solid #aaa;
+    border-right: 10px solid #aaa;
+    border-top: 0px;
+    border-bottom: 0px;
+    /* background-color: #555; */
+
+    padding: 3px;
+    padding-left: 13px;
+
+    min-height: 25px;
+    align-content: center;
+}
+
+
+#input-field {
+    
+    margin: 6px;
+    margin-top: 0px;
+    flex: 0;
+    
+    display: flex;
+    flex-direction: row;
+}
+#message-input {
+    flex: 1;
+}
