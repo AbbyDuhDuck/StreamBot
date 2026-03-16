@@ -20,12 +20,14 @@ TODO
 
 from enum import Enum
 from dataclasses import dataclass, field
+import hashlib
 from typing import Any, Callable
 from datetime import datetime
 
 from .. import ConfigClass, configclass, BaseService, serviceclass
 from ...signals import EventBus, EventData, QueryBus, QueryData, Response
 import asyncio
+import random
 
 
 from typing import TYPE_CHECKING
@@ -35,7 +37,46 @@ if TYPE_CHECKING:
     from .chat_twitch import TwitchChatMessageData
 
 
+USER_COLORS = [
+    "#FF595E",  # red
+    "#FF924C",  # orange
+    "#FFCA3A",  # yellow
+    "#8AC926",  # lime
+    "#52B788",  # green
+    "#2EC4B6",  # teal
+    "#00BBF9",  # sky blue
+    "#3A86FF",  # blue
+    "#4361EE",  # royal blue
+    "#8338EC",  # purple
+    "#9D4EDD",  # violet
+    "#C77DFF",  # lavender purple
+    "#F72585",  # magenta
+    "#FF4D8D",  # pink
+    "#FF6F91",  # rose
+    "#F15BB5",  # hot pink
+    "#06D6A0",  # aqua green
+    "#00F5D4",  # bright aqua
+    "#4CC9F0",  # cyan
+    "#90DBF4",  # light cyan
+    "#B8F2E6",  # mint
+    "#80ED99",  # bright green
+    "#C7F464",  # yellow-green
+    "#FFD166",  # gold
+    "#F4A261",  # warm orange
+    "#E76F51",  # coral
+    "#FF006E",  # neon magenta
+    "#B5179E",  # deep magenta
+    "#7209B7",  # deep purple
+    # "#560BAD",  # indigo
+]
+
 # -=-=- Functions & Classes -=-=- #
+
+def get_random_user_color(user:str) -> str:
+    seed = int(hashlib.sha256(user.encode()).hexdigest(), 16)
+    rand = random.Random(seed)
+    return rand.choice(USER_COLORS)
+
 
 class Platform(Enum):
     TWITCH = "Twitch"
@@ -129,10 +170,10 @@ class ChatService(BaseService[ChatConfig]):
             platform=Platform.YOUTUBE,
             has_broadcaster=data.has_broadcaster,
             has_mod=data.has_mod,
-            has_vip=data.has_vip,
+            has_ads=data.has_ads,
             data=data,
+            user_color=get_random_user_color(data.user),
             # TODO: emotes
-            # TODO: user color
         ))
 
     async def event_twitch_chat_message(self, data:"TwitchChatMessageData"):
