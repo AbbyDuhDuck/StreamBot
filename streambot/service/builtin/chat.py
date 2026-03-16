@@ -19,7 +19,7 @@ TODO
 # -=-=- Imports & Globals -=-=- #
 
 from enum import Enum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
 from datetime import datetime
 
@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .chat_youtube import YouTubeChatMessageData
+    from .chat_twitch import TwitchChatMessageData
 
 
 # -=-=- Functions & Classes -=-=- #
@@ -63,7 +64,7 @@ class ChatMessageData(EventData):
     # message
     message:str
     user:str
-    timestamp:datetime|None = None
+    timestamp:int|None = None
     platform:Platform = Platform.TWITCH
     shared_chat:bool = False
     # user
@@ -73,6 +74,8 @@ class ChatMessageData(EventData):
     has_vip:bool = False
     has_ads:bool = True
     user_color: str = "#ccc"
+    # raw
+    data:EventData = None
 
 @dataclass
 class MessageOutData(EventData):
@@ -101,6 +104,7 @@ class ChatService(BaseService[ChatConfig]):
     def __register_events__(self, event_bus):
         self.event_bus = event_bus
         event_bus.register("YouTubeChatMessage", self.event_youtube_chat_message)
+        event_bus.register("TwitchChatMessage", self.event_twitch_chat_message)
         pass
         
     def __register_queries__(self, query_bus):
@@ -117,7 +121,7 @@ class ChatService(BaseService[ChatConfig]):
     # -=-=- Events -=-=- #
     
     async def event_youtube_chat_message(self, data:"YouTubeChatMessageData"):
-        print(data.emotes)
+        print("YouTube Emotes", data.emotes)
         await self.event_bus.emit("ChatMessage", ChatMessageData(
             message=data.message,
             user=data.user,
@@ -125,7 +129,26 @@ class ChatService(BaseService[ChatConfig]):
             platform=Platform.YOUTUBE,
             has_broadcaster=data.has_broadcaster,
             has_mod=data.has_mod,
-            has_vip=data.has_vip
+            has_vip=data.has_vip,
+            data=data,
+            # TODO: emotes
+            # TODO: user color
+        ))
+
+    async def event_twitch_chat_message(self, data:"TwitchChatMessageData"):
+        print("Twitch emotes:", data.emotes)
+        await self.event_bus.emit("ChatMessage", ChatMessageData(
+            message=data.message,
+            user=data.user,
+            timestamp=data.timestamp,
+            platform=Platform.TWITCH,
+            has_broadcaster=data.has_broadcaster,
+            has_head_mod=data.has_head_mod,
+            has_mod=data.has_mod,
+            has_vip=data.has_vip,
+            has_ads=data.has_ads,
+            user_color=data.user_color,
+            data=data,
             # TODO: emotes
         ))
 
