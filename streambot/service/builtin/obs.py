@@ -78,6 +78,7 @@ class OBSService(BaseService[OBSConfig]):
 
     async def stop(self):
         print("Stopping OBS")
+        if self.client: self.client.disconnect()
 
     # -=-=- #
     
