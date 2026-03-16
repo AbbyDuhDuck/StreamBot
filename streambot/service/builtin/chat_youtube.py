@@ -85,7 +85,7 @@ class YouTubeChatMessageData(EventData):
     amount:str = ""
     has_broadcaster:bool = False
     has_mod:bool = False
-    has_vip:bool = False
+    has_ads:bool = True
     badge_url:str = ""
     emotes:list[dict[str, str]]=field(default_factory=list)
 
@@ -169,7 +169,7 @@ class YouTubeService(BaseService[YouTubeConfig]):
             # -=-=- #
             has_broadcaster=data.author.isChatOwner,
             has_mod=data.author.isChatModerator,
-            has_vip=data.author.isChatSponsor,
+            has_ads=not data.author.isChatSponsor,
             emotes=emotes,
         ))
 
