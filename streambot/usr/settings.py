@@ -51,6 +51,7 @@ class UserSettings:
 
         self.services.enable('webui')
         self.services.enable('sound')
+        self.services.enable('chat')
 
         EventBus.get_instance().register('Stop', EventBus.lambda_action(lambda _: self.stop()))
 

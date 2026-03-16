@@ -24,6 +24,7 @@ from typing import Any, Callable
 
 from .. import ConfigClass, configclass, BaseService, serviceclass
 from ...signals import EventBus, EventData, QueryBus, QueryData, Response
+import asyncio
 
 
 # -=-=- Functions & Classes -=-=- #
@@ -35,16 +36,12 @@ from ...signals import EventBus, EventData, QueryBus, QueryData, Response
 class AIConfig(ConfigClass):
     pass
 
+# -=-=- Data Classes -=-=- #
+
+# TODO - dataclasses for event data, query data, etc. related to AI functionality.
+
+
 # -=-=- Service Class -=-=- #
-
-import asyncio
-
-
-# -=-=- Function -=-=- #
-
-
-
-# -=-=- Classes -=-=- #
 
 @serviceclass("ai")
 class AIService(BaseService[ConfigClass]):
@@ -79,6 +76,5 @@ class AIService(BaseService[ConfigClass]):
     # TODO - add event handlers here, such as for chat messages, commands, etc.
 
 
-# TODO - dataclasses for event data, query data, etc. related to AI functionality.
 
 # EOF #

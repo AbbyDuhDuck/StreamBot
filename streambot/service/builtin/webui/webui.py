@@ -53,7 +53,7 @@ import uvicorn
 
 from ... import BaseService, serviceclass, ConfigClass, configclass
 from ....signals import EventBus, EventData, QueryBus
-from ..chat import ChatMessageData, MessageOutData
+# from ..chat import ChatMessageData, MessageOutData
 
 from .widgets.manager import WidgetManager
 from .widgets.bridge import EventBridge
