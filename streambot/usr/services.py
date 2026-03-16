@@ -46,8 +46,8 @@ class UserServices:
             raise ValueError(f"Unknown Service: {name}")
         
         service_class:type[BaseService] = self.registered[name]
+        config = (config or service_class.Config()).replace(service_class.Config(**kwargs))
         service = service_class(config)
-        service.configure(service.Config(**kwargs))
         self.active[name] = service
 
     async def disable(self, name:str):
