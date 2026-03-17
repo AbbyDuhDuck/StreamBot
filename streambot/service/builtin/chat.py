@@ -66,7 +66,7 @@ USER_COLORS = [
     "#E76F51",  # coral
     "#FF006E",  # neon magenta
     "#B5179E",  # deep magenta
-    "#7209B7",  # deep purple
+    # "#7209B7",  # deep purple
     # "#560BAD",  # indigo
 ]
 
@@ -116,6 +116,7 @@ class ChatMessageData(EventData):
     has_ads:bool = True
     user_color: str = "#ccc"
     # raw
+    emotes:dict[str, str] = field(default_factory=dict)
     data:EventData = None
 
 @dataclass
@@ -155,14 +156,9 @@ class ChatService(BaseService[ChatConfig]):
         # )
         pass
 
-    # -=-=- #
-
-    # TODO - add functionality here
-
     # -=-=- Events -=-=- #
     
     async def event_youtube_chat_message(self, data:"YouTubeChatMessageData"):
-        print("YouTube Emotes", data.emotes)
         await self.event_bus.emit("ChatMessage", ChatMessageData(
             message=data.message,
             user=data.user,
@@ -171,13 +167,12 @@ class ChatService(BaseService[ChatConfig]):
             has_broadcaster=data.has_broadcaster,
             has_mod=data.has_mod,
             has_ads=data.has_ads,
-            data=data,
             user_color=get_random_user_color(data.user),
-            # TODO: emotes
+            emotes=data.emotes,
+            data=data,
         ))
 
     async def event_twitch_chat_message(self, data:"TwitchChatMessageData"):
-        print("Twitch emotes:", data.emotes)
         await self.event_bus.emit("ChatMessage", ChatMessageData(
             message=data.message,
             user=data.user,
@@ -188,9 +183,9 @@ class ChatService(BaseService[ChatConfig]):
             has_mod=data.has_mod,
             has_vip=data.has_vip,
             has_ads=data.has_ads,
-            user_color=data.user_color,
+            user_color=data.user_color or get_random_user_color(data.user),
+            emotes=data.emotes,
             data=data,
-            # TODO: emotes
         ))
 
     # TODO - add event handlers here

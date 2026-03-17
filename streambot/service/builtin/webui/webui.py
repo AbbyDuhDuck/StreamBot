@@ -70,7 +70,7 @@ class WSMessageData:
 class WSMessageOutData:
     path: str
     event: str
-    message: dict[str, str]
+    message: dict[str, str|dict]
     
 
 # -=-=- Config Class -=-=- #

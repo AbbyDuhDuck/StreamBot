@@ -22,6 +22,7 @@ from enum import Enum
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from .tick import OnTickData
 from .chat import ChatMessageData, Platform
 from .. import ConfigClass, configclass, BaseService, serviceclass
 from ...signals import EventBus, EventData, QueryBus, QueryData, Response
@@ -120,9 +121,12 @@ class TwitchChatMessageData(EventData):
     has_ads:bool = True
     user_color: str = "#ccc"
     # raw
-    emotes:dict|None = field(default_factory=lambda: None)
+    emotes:dict[str, str] = field(default_factory=lambda: dict)
     data:chat.ChatMessage = field(default_factory=lambda: None)
 
+@dataclass
+class UpdateViewersTwitchData(EventData):
+    viewers:int
 
 # -=-=- Service Class -=-=- #
 
@@ -275,22 +279,25 @@ class TwitchService(BaseService[TwitchConfig]):
             has_ads=not has_paid,
             user_color=message.user.color,
             data=message,
-            emotes=message.emotes or {}
+            emotes=self.parse_emotes(message.text, message.emotes)
         ))
+
+    def parse_emotes(self, msg:str, emotes:dict[str, list[dict[str, str]]]|None) -> dict[str, str]:
+        if emotes is None: return {}
+        return {msg[int(emotes[id][0]['start_position']) : int(emotes[id][0]['end_position'])+1] : id for id in emotes}
 
     # -=-=- #
 
     def __register_events__(self, event_bus):
         self.event_but = event_bus
-        # event_bus.register("ChatMessageIn", self.event_chat_message_in)
-        pass
         
     def __register_queries__(self, query_bus):
         # query_bus.register(
         #     'GetSoundService', 
         #     QueryBus.lambda_handler(lambda _: Response(self, service=self))
         # )
-        pass
+
+        query_bus.register("GetTwitchViewers", self.query_get_twitch_viewers)
 
     # -=-=- #
 
@@ -316,9 +323,25 @@ class TwitchService(BaseService[TwitchConfig]):
         user_id = await self.get_user_id(channel)
         if user_id: return (await self.twitch_user.get_channel_information(broadcaster_id=[user_id]))[0]
 
+    # -=-=- #
+
+    # async def update_view_count(self):
+    #     stream = await self.get_stream_data(self.config.account_user)
+    #     view_count = stream is not None and stream.viewer_count or 0
+    #     await self.event_bus.emit("UpdateViewersTwitch", UpdateViewersTwitchData(viewers=view_count))
+
     # -=-=- Events -=-=- #
 
     # TODO - add event handlers here
+
+    # async def event_on_tick(self, _:OnTickData):
+    #     await self.update_view_count()
+
+    
+    async def query_get_twitch_viewers(self, _:QueryData) -> Response:
+        stream = await self.get_stream_data(self.config.account_user)
+        viewers = stream is not None and stream.viewer_count or 0
+        return Response(viewers, viewers=viewers)
 
 
 # EOF #
