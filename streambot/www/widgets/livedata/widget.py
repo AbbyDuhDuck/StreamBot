@@ -66,6 +66,11 @@ class Widget(base.Widget):
 
     twitch_in_ads:bool = False
 
+    @property
+    def twitch_avg_viewers(self):
+        return round(self.twitch_raid_viewers / max(1, self.twitch_raids), 1)
+    
+
     def register_events(self, event_bus: EventBus):
         self.event_bus = event_bus
 
@@ -81,7 +86,7 @@ class Widget(base.Widget):
             'twitch-viewers': self.twitch_viewers,
             'youtube-viewers': self.youtube_viewers,
             'twitch-raids': self.twitch_raids,
-            'twitch-raid-viewers': round(self.twitch_raid_viewers / self.twitch_raids, 1),
+            'twitch-raid-viewers': self.twitch_avg_viewers,
         }))
 
     @debounce(3)
@@ -99,7 +104,7 @@ class Widget(base.Widget):
     async def update_raids(self):
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="livedata", event='update', message={
             'twitch-raids': self.twitch_raids,
-            'twitch-raid-viewers': round(self.twitch_raid_viewers / self.twitch_raids, 1),
+            'twitch-raid-viewers': self.twitch_avg_viewers,
         }))
 
     async def get_viewers(self):
@@ -122,7 +127,7 @@ class Widget(base.Widget):
             'youtube_viewers': self.youtube_viewers,
 
             'twitch_raids': self.twitch_raids,
-            'twitch_raid_viewers': round(self.twitch_raid_viewers / max(1, self.twitch_raids), 1),
+            'twitch_raid_viewers': self.twitch_avg_viewers,
 
             'twitch_in_ads': self.twitch_in_ads,
         }
