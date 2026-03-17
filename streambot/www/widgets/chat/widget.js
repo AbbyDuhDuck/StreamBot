@@ -1,5 +1,40 @@
 
+const TWITCH_EMOTE = (emote) => `<img class="twitch-emote emote"
+srcset="
+//static-cdn.jtvnw.net/emoticons/v2/${emote}/default/dark/1.0 1x, 
+//static-cdn.jtvnw.net/emoticons/v2/${emote}/default/dark/2.0 2x, 
+//static-cdn.jtvnw.net/emoticons/v2/${emote}/default/dark/4.0 4x, 
+"
+loading="lazy" decoding="async">`;
+const YOUTUBE_EMOTE = (emote) => `<img class="youtube-emote emote"
+src="${emote}"
+loading="lazy" decoding="async">`;
 
+
+
+function parseEmotes(data) {
+    msg = data.message;
+    emote_fmt = (emote) => '';
+    // -=-=- //
+    if (data.platform == 'twitch') emote_fmt = TWITCH_EMOTE;
+    if (data.platform == 'youtube') emote_fmt = YOUTUBE_EMOTE;
+    // -=-=- //
+    for (const emote in data.emotes) {
+        const html = emote_fmt(data.emotes[emote])
+        msg = msg.split(emote).join(html);
+    }
+    return msg
+}
+
+function addMessageHTML(html) {
+    // console.log("Adding message HTML:", html)
+    $container = $('#message-container')
+    $container.append(html)
+
+    $container.animate({
+        scrollTop: $container.prop('scrollHeight')
+    }, 1000);
+}
 
 
 // Wait for document to load 
@@ -16,10 +51,9 @@ $(document).ready(() => {
     ws.addEventListener("message", (event) => {
         try {
             const data = JSON.parse(event.data);
-            console.log("Received message from WebSocket:", data);
-    
+            // console.log("Received message from WebSocket:", data);
             if (data.event === "chat-message") {
-                console.log("Received chat message:", data.message);
+                data.message.message = parseEmotes(data.message)
                 // send a get to widgets/chat/message with the message data as query params
                 $.get("/widget/chat/message/", data.message, (html) => {
                     addMessageHTML(html)
@@ -34,14 +68,6 @@ $(document).ready(() => {
         console.log("WebSocket disconnected");
     });
     
-    // console.log('Page Loaded')
-    
-    // $('#user-input').on('submit', () => { 
-
-    //     // prevents default behaviour 
-    //     // Prevents event propagation 
-    //     return false; 
-    // });
 
     $('#message-input').keypress((e) => { 
         // Enter key corresponds to number 13 
@@ -60,23 +86,6 @@ $(document).ready(() => {
                 event: 'message',
                 data: {message:input, id}
             }));
-
-            // const ws = new WebSocket("ws://localhost:8765");
-            
-            // send the message to the backend
-            // do a post to an endpoint that any of the widgets can connect to for receiving messages
-            // or maybe websockets, depents on how we are doing the messaging rn
         }
     }) 
 }); 
-
-
-function addMessageHTML(html) {
-    console.log("Adding message HTML:", html)
-    $container = $('#message-container')
-    $container.append(html)
-
-    $container.animate({
-        scrollTop: $container.prop('scrollHeight')
-    }, 1000);
-}

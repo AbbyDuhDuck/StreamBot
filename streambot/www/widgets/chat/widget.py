@@ -65,13 +65,16 @@ class Widget(base.Widget):
                 await self.event_bus.emit("MessageOut", MessageOutData(message=message))
 
     async def event_chat_message(self, event:ChatMessageData):
-        # print(f"ChatMessage: {event.user}: {event.message}")
+        # print(f"ChatMessage: {event.user}: {event.message} [{event.timestamp}]")
+        # print("Emotes:", event.emotes)
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="chat", event="chat-message", message={
             "message": event.message,
             "user": event.user,
+            "platform": event.platform.value.lower(),
             "platform_icon": get_platform_icon(event.platform),
             "badges": get_badges(event),
             "color": event.user_color,
             "has_ads": event.has_ads,
+            "emotes": event.emotes
         }))
 

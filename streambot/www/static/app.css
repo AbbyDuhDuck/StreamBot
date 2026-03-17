@@ -16,6 +16,12 @@ body {
 }
 
 
+.emote {
+    height: 1.6em;
+    width: auto;
+    
+    vertical-align: bottom;
+}
 /* 
 #stream-data {
     color: white;
@@ -52,6 +58,13 @@ body {
 
     padding: 6px 6px;
     padding-bottom: 0px;
+}
+
+.widget .row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 3px;
 }
 
 .widget .button-row {

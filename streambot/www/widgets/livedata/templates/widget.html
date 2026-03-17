@@ -15,8 +15,18 @@ $(document).ready(() => {
 
             if (data.event === "update") {
                 console.log("Received update:", data.message);
-                $("#twitch-viewers").html(data.message['twitch-viewers'] ?? 0)
-                $("#youtube-viewers").html(data.message['youtube-viewers'] ?? 0)
+                if (data.message['twitch-viewers'] !== undefined)
+                    $("#twitch-viewers").html(data.message['twitch-viewers']);
+                if (data.message['youtube-viewers'] !== undefined)
+                    $("#youtube-viewers").html(data.message['youtube-viewers']);
+                
+                if (data.message['twitch-raids'] !== undefined)
+                    $("#twitch-raids").html(data.message['twitch-raids']);
+                if (data.message['twitch-raid-viewers'] !== undefined)
+                    $("#twitch-raid-viewers").html(data.message['twitch-raid-viewers']);
+                
+                if (data.message['twitch-in-ads'] !== undefined)
+                    $("#twitch-in-ads").prop('hidden', !data.message['twitch-in-ads']);
             }
         } catch (err) {
             console.error("Failed to parse WS message:", err);
@@ -51,7 +61,9 @@ $(document).ready(() => {
 
 <div id="livedata">
     <p>Live Data:</p>
-    <div>
-        <div><i class="fa fa-twitch"></i><span id="twitch-viewers">0</span><i class="fa fa-youtube-play"></i><span id="youtube-viewers">0</span></div>
+    <div class="row">
+        <div><i class="fa fa-twitch"></i><span id="twitch-viewers">{{twitch_viewers or 0}}</span><i class="fa fa-youtube-play"></i><span id="youtube-viewers">{{youtube_viewers or 0}}</span></div>
+        <div><span {{ 'hidden' if not twitch_in_ads else '' }} id="twitch-in-ads">In Ads</span></div>
+        <div><i class="fa fa-parachute-box"></i><span id="twitch-raids">{{twitch_raids or 0}}</span><i class="fa fa-user"></i><span id="twitch-raid-viewers">{{twitch_raid_viewers or 0}}</span></div>
     </div>
 </div>
