@@ -46,11 +46,11 @@ USER_COLORS = [
     "#2EC4B6",  # teal
     "#00BBF9",  # sky blue
     "#3A86FF",  # blue
-    "#f4b2ef",  # Abby Color
+    "#f4b2ef",  # abby pink
     "#8338EC",  # purple
     "#9D4EDD",  # violet
     "#C77DFF",  # lavender purple
-    "#ffffff",  # magenta
+    "#9999ff",  # blue purple
     "#FF4D8D",  # pink
     "#4361EE",  # royal blue
     "#F15BB5",  # hot pink
@@ -65,7 +65,7 @@ USER_COLORS = [
     "#F4A261",  # warm orange
     "#E76F51",  # coral
     "#FF006E",  # neon magenta
-    "#5f9ea0",  # deep blue?
+    "#5f9ea0",  # camo blue
 ]
 
 # -=-=- Functions & Classes -=-=- #
