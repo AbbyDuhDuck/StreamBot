@@ -73,18 +73,33 @@
     
 .notification {
     background-color: #2a2a2a;
-
+    
     border-left: 3px solid #aaa;
     border-right: 10px solid #aaa;
     border-top: 0px;
     border-bottom: 0px;
     /* background-color: #555; */
-
+    
     padding: 3px;
     padding-left: 13px;
-
+    
     min-height: 25px;
     align-content: center;
+}
+.notification-type {
+    display: none;
+}
+.notification-info {
+    background-color: #2a2a2a;
+    border-color: #aaa;
+}
+.notification-warning {
+    background-color: #30302a;
+    border-color: #cca;
+}
+.notification-error {
+    background-color: #302a2a;
+    border-color: #caa;
 }
 
 

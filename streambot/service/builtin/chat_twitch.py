@@ -20,10 +20,10 @@ TODO
 
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any, Callable, Coroutine
 
 from .tick import OnTickData
-from .chat import ChatMessageData, Platform
+from .chat import ChatMessageData, Platform, ChatNotificationData, NotifType
 from .. import ConfigClass, configclass, BaseService, serviceclass
 from ...signals import EventBus, EventData, QueryBus, QueryData, Response
 import asyncio
@@ -32,7 +32,7 @@ import asyncio
 
 import logging
 from pprint import pprint, pformat
-from typing import Dict, List, override
+from typing import Dict, List, override, Type
 
 import requests
 from twitchAPI.helper import first, build_url, TWITCH_API_BASE_URL
@@ -46,7 +46,7 @@ from twitchAPI.eventsub.webhook import EventSubWebhook
 # from twitchAPI.eventsub.base import EventSubBase
 from twitchAPI.object.eventsub import StreamOnlineEvent, StreamOfflineEvent, ChannelPointsCustomRewardRedemptionAddEvent
 from twitchAPI.object.eventsub import ChannelUpdateEvent
-from twitchAPI.object import eventsub as subevents
+from twitchAPI.object import eventsub
 from twitchAPI.type import AuthScope, ChatEvent, TwitchAPIException
 from twitchAPI import chat # import Chat, EventData, ChatMessage, ChatSub, ChatCommand
 # from twitchAPI.pubsub import PubSub
@@ -59,6 +59,9 @@ from datetime import datetime, timedelta
 from uuid import UUID
 
 from threading import Thread
+
+from dataclasses import dataclass
+from typing import Generic, TypeVar
 
 # from . import ChatService, ChatSettings
 
@@ -128,6 +131,17 @@ class TwitchChatMessageData(EventData):
 class UpdateViewersTwitchData(EventData):
     viewers:int
 
+# -=-=- #
+
+T = TypeVar("T")
+
+@dataclass
+class TwitchEventData(EventData, Generic[T]):
+    event:str
+    data:T
+
+
+
 # -=-=- Service Class -=-=- #
 
 @serviceclass("twitch")
@@ -167,7 +181,12 @@ class TwitchService(BaseService[TwitchConfig]):
         if self.twitch_bot: await self.twitch_bot.close()
         # -=-=- #
         print('Twitch Stopped')
-    
+
+    # -=-=- #
+
+    async def out(self, message:str, _type:NotifType=NotifType.INFO):
+        await self.event_bus.emit("ChatNotification", ChatNotificationData(message=message, type=_type))
+
     # -=-=- #
 
     async def _auth(self):
@@ -251,7 +270,44 @@ class TwitchService(BaseService[TwitchConfig]):
         return _chat
 
     async def _start_events(self):
-        pass
+        if not self.auth_done:
+            print("Cannot start Twitch eventsub as the auth service is not complete.")
+        # -=-=- #
+        print("Connecting to Twitch EventSub.")
+        
+        # create eventsub websocket instance and start the client.
+        self.eventsub = eventsub = EventSubWebsocket(self.twitch_user)
+        eventsub.start()
+
+        user_id = await self.get_user_id(self.config.account_user)
+
+        await eventsub.listen_stream_online(user_id, self.make_chat_event("StreamOnline"))
+        await eventsub.listen_stream_offline(user_id, self.make_chat_event("StreamOffline"))
+
+        # await eventsub.listen_channel_ad_break_begin(user_id, _display_args("Ads Start"))
+
+        await eventsub.listen_channel_bits_use(user_id, self.make_chat_event("BitsUsed"))
+
+        await eventsub.listen_channel_subscribe(user_id, self.make_chat_event("Subscribe"))
+        # await eventsub.listen_channel_subscription_end(user_id, self.make_chat_event("Subscribe End"))
+        await eventsub.listen_channel_subscription_gift(user_id, self.make_chat_event("SubscribeGift"))
+        # await eventsub.listen_channel_subscription_message(user_id, self.make_chat_event("Subscribe Message"))
+
+        await eventsub.listen_channel_raid(self.make_chat_event("Raid"), user_id)
+        # await eventsub.listen_channel_raid(self.make_chat_event("RaidOut"), None, user_id)
+
+        await eventsub.listen_channel_follow_v2(user_id, user_id, self.make_chat_event("Follow"))
+        
+        await eventsub.listen_channel_points_custom_reward_redemption_add(user_id, self.make_chat_event("Redeem"))
+        
+
+    # -=-=- #
+
+    def make_chat_event(self, event:str) -> Coroutine:
+        async def chat_event(event_data):
+            print(f"Triggering event: {event}")
+            await self.event_bus.emit(f"Twitch{event}Event", TwitchEventData(event=event, data=event_data))
+        return chat_event
 
     # -=-=- #
 
@@ -290,6 +346,8 @@ class TwitchService(BaseService[TwitchConfig]):
 
     def __register_events__(self, event_bus):
         self.event_but = event_bus
+
+        event_bus.register("TwitchRedeemEvent", self.event_on_redeem)
         
     def __register_queries__(self, query_bus):
         # query_bus.register(
@@ -332,10 +390,23 @@ class TwitchService(BaseService[TwitchConfig]):
 
     # -=-=- Events -=-=- #
 
-    # TODO - add event handlers here
+    async def event_on_redeem(self, data:TwitchEventData[ChannelPointsCustomRewardRedemptionAddEvent]):
+        redeem = data.data.event.reward.title
+        usr_in = data.data.event.user_input
+        user = data.data.event.user_name
+        print(f"{user} redeemed {redeem} : {usr_in}")
+        await self.out(f"{user} redeemed {redeem} : {usr_in}")
 
-    # async def event_on_tick(self, _:OnTickData):
-    #     await self.update_view_count()
+        redeem_id = ''
+        remove_word = ['a', 'an', 'the']
+        remove_char = "!?'"
+        for word in redeem.split():
+            if word in remove_word: continue        
+            redeem_id += word.title()
+        for ch in remove_char:
+            redeem_id = redeem_id.replace(ch, '')
+
+        await self.event_bus.emit(f"On{redeem_id}Redeem", data)
 
     
     async def query_get_twitch_viewers(self, _:QueryData) -> Response:

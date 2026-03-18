@@ -52,7 +52,7 @@ class Widget(base.Widget):
         self.event_bus = event_bus
         self.register("WSMessageChat", self.event_ws_message)
         self.register("ChatMessage", self.event_chat_message)
-        self.ws_register("ChatNotification")
+        self.register("ChatNotification", self.event_chat_notification)
 
     async def event_ws_message(self, event:WSMessageData):
         # print(f"Received WSMessage ({event.event}): {event.data}")
@@ -76,5 +76,11 @@ class Widget(base.Widget):
             "color": event.user_color,
             "has_ads": event.has_ads,
             "emotes": event.emotes
+        }))
+    async def event_chat_notification(self, event:ChatNotificationData):
+        print(f"Chat Notif ({event.type}): {event.message}")
+        await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="chat", event="chat-notification", message={
+            "message": event.message,
+            "type": event.type.value.lower()
         }))
 

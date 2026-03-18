@@ -45,6 +45,10 @@ $(document).ready(() => {
     
     ws.addEventListener("open", () => {
         console.log("Connected to chat WebSocket");
+
+        $.get("/widget/chat/notification/", {message:"Chat Connected"}, (html) => {
+            addMessageHTML(html)
+        })
     });
     
     // Listen for stop time updates from Python
@@ -56,6 +60,12 @@ $(document).ready(() => {
                 data.message.message = parseEmotes(data.message)
                 // send a get to widgets/chat/message with the message data as query params
                 $.get("/widget/chat/message/", data.message, (html) => {
+                    addMessageHTML(html)
+                })
+            }
+            if (data.event === "chat-notification") {
+                data.message.type = 'warning'
+                $.get("/widget/chat/notification/", data.message, (html) => {
                     addMessageHTML(html)
                 })
             }
