@@ -64,7 +64,6 @@ $(document).ready(() => {
                 })
             }
             if (data.event === "chat-notification") {
-                data.message.type = 'warning'
                 $.get("/widget/chat/notification/", data.message, (html) => {
                     addMessageHTML(html)
                 })
