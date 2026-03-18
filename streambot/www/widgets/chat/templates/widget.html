@@ -10,13 +10,23 @@
         </div>
         <div class="content">Welcome to the Chat</div>
     </div>
+
+    {% for message in chat_history %}
+    <div class="message">
+        <div class="user">
+            <div class="badges">{{message.platform_icon}}{{message.badges}}</div>
+            <p class="username" has-ads="{{message.has_ads}}" style="color:{{message.color}};">{{message.user}}</p>
+        </div>
+        {% if message.emotes != {} %}
+        <div class="content"><span class="raw-emotes" emotes='{{ message.emotes | tojson }}' platform="{{message.platform}}">{{message.message}}</span></div>
+        {% else %}
+        <div class="content">{{message.message}}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
 </div>
 
 <div id="input-field">
     <input id="message-input" placeholder="Type a message or a !command">
-    {# <select id="message-user">
-        <option value="artamis">Artamis</option>
-        <option value="abby">Abby</option>
-        <option value="commands">!!</option>
-    </select> #}
 </div>

@@ -22,6 +22,8 @@ MOD_BADGE_ICON = f'<img src="{MOD_BADGE_URL}" alt="MOD" class="badge">'
 VIP_BADGE_URL = 'https://static-cdn.jtvnw.net/badges/v1/b817aba4-fad8-49e2-b88a-7cc744dfa6ec/1'
 VIP_BADGE_ICON = f'<img src="{VIP_BADGE_URL}" alt="VIP" class="badge">'
 
+CHAT_HISTORY_LIMIT = 50
+
 def get_platform_icon(platform:Platform) -> str:
     if platform is Platform.TWITCH: return PLATFORM_TWITCH_ICON
     if platform is Platform.YOUTUBE: return PLATFORM_YOUTUBE_ICON
@@ -48,6 +50,17 @@ class Widget(base.Widget):
     
     EVENTS = [ChatMessageData, ChatNotificationData, WSMessageData, WSMessageOutData]
 
+    chat_history:list[dict[str, str|dict]] = []
+
+    # -=-=- #
+
+    def add_message_history(self, message:dict[str, str|dict]):
+        self.chat_history.append(message)
+        if len(self.chat_history) > CHAT_HISTORY_LIMIT:
+            self.chat_history.pop(0)
+
+    # -=-=- #
+
     def register_events(self, event_bus: EventBus):
         self.event_bus = event_bus
         self.register("WSMessageChat", self.event_ws_message)
@@ -67,7 +80,7 @@ class Widget(base.Widget):
     async def event_chat_message(self, event:ChatMessageData):
         # print(f"ChatMessage: {event.user}: {event.message} [{event.timestamp}]")
         # print("Emotes:", event.emotes)
-        await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="chat", event="chat-message", message={
+        message = {
             "message": event.message,
             "user": event.user,
             "platform": event.platform.value.lower(),
@@ -76,11 +89,20 @@ class Widget(base.Widget):
             "color": event.user_color,
             "has_ads": event.has_ads,
             "emotes": event.emotes
-        }))
+        }
+        self.add_message_history(message)
+        await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="chat", event="chat-message", message=message))
+
     async def event_chat_notification(self, event:ChatNotificationData):
         print(f"Chat Notif ({event.type}): {event.message}")
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="chat", event="chat-notification", message={
             "message": event.message,
             "type": event.type.value.lower()
         }))
+
+    def context(self):
+        context = {
+            'chat_history':self.chat_history,
+        }
+        return context
 

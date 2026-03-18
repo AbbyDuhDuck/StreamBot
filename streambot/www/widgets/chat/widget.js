@@ -39,6 +39,23 @@ function addMessageHTML(html) {
 
 // Wait for document to load 
 $(document).ready(() => { 
+
+    $('.raw-emotes').each(function() {
+        $this = $(this)
+        const text = $this.text();
+        const emotes = JSON.parse($this.attr('emotes'));
+        const platform = $this.attr('platform');
+
+        console.log(platform, text, emotes);
+
+        html = parseEmotes({
+            message: text,
+            emotes: emotes,
+            platform: platform,
+        })
+        $this.html(html)
+        $this.removeClass('raw-emotes');
+    });
     
     // Connect to the WebSocket server
     const ws = new WebSocket("ws://127.0.0.1:13337/ws/chat");

@@ -65,7 +65,7 @@ USER_COLORS = [
     "#F4A261",  # warm orange
     "#E76F51",  # coral
     "#FF006E",  # neon magenta
-    "#B5179E",  # deep magenta
+    "#5f9ea0",  # deep blue?
 ]
 
 # -=-=- Functions & Classes -=-=- #
