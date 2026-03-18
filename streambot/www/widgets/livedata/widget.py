@@ -5,12 +5,14 @@
 import random
 
 from streambot.service.builtin.chat_youtube import UpdateViewersYoutubeData
-from streambot.service.builtin.chat_twitch import UpdateViewersTwitchData
+from streambot.service.builtin.chat_twitch import TwitchEventData
 from streambot.service.builtin.webui.webui import WSMessageData, WSMessageOutData
 from streambot.service.builtin.webui.widgets import base
 from streambot.service.builtin.chat import ChatMessageData, ChatNotificationData, MessageOutData, Platform
 from streambot.service.builtin.commands import parse_command, ChatCommandData
 from streambot.signals import EventBus, EventData, QueryBus, Response
+
+from twitchAPI.object.eventsub import ChannelRaidData
 
 import asyncio
 from functools import wraps
@@ -77,6 +79,10 @@ class Widget(base.Widget):
         self.register("OnHalfMinuteTick", self.on_tick)
         self.register("OnFiveMinuteTick", self.on_long_tick)
 
+        # self.register("OnAds", self.on_long_tick)
+        self.register("TwitchRaidEvent", self.on_twitch_raid_event)
+
+
     def register_queries(self, query_bus):
         self.query_bus = query_bus
 
@@ -131,3 +137,11 @@ class Widget(base.Widget):
 
             'twitch_in_ads': self.twitch_in_ads,
         }
+    
+    # -=-=- Events -=-=- #
+
+    async def on_twitch_raid_event(self, data:TwitchEventData[ChannelRaidData]):
+        print(f"[livedata widget] Raid {data.data.from_broadcaster_user_name} with {data.data.viewers}")
+        self.twitch_raids += 1
+        self.twitch_raid_viewers += data.data.viewers
+        await self.update_raids()
