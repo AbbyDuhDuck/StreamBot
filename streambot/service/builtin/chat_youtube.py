@@ -41,8 +41,8 @@ import asyncio
 from .chat import MessageOutData, Platform
 from .tick import OnTickData
 
-# import emojis
-import dismoji
+import emojis
+# import dismoji
 
 import re
 import json
@@ -237,7 +237,7 @@ class YouTubeService(BaseService[YouTubeConfig]):
     async def youtube_chat_callback(self, data):
         # print(f"{data.datetime} [{data.author.name}]-{data.message} {data.amountString}")
         user:str = data.author.name
-        msg:str = dismoji.emojize(data.message)
+        msg:str = emojis.encode(data.message)
         if user.startswith('@'): user = user[1:]
         # replace with dedicated function and store them incase missing (happens)
         emotes:dict[str, str]=self.parse_emotes(msg, data.messageEx)
