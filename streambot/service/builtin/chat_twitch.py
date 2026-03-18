@@ -284,17 +284,16 @@ class TwitchService(BaseService[TwitchConfig]):
         await eventsub.listen_stream_online(user_id, self.make_chat_event("StreamOnline"))
         await eventsub.listen_stream_offline(user_id, self.make_chat_event("StreamOffline"))
 
-        # await eventsub.listen_channel_ad_break_begin(user_id, _display_args("Ads Start"))
+        await eventsub.listen_channel_ad_break_begin(user_id, self.make_chat_event("AdsStart"))
 
         await eventsub.listen_channel_bits_use(user_id, self.make_chat_event("BitsUsed"))
 
         await eventsub.listen_channel_subscribe(user_id, self.make_chat_event("Subscribe"))
-        # await eventsub.listen_channel_subscription_end(user_id, self.make_chat_event("Subscribe End"))
+        await eventsub.listen_channel_subscription_end(user_id, self.make_chat_event("SubscribeEnd"))
         await eventsub.listen_channel_subscription_gift(user_id, self.make_chat_event("SubscribeGift"))
-        # await eventsub.listen_channel_subscription_message(user_id, self.make_chat_event("Subscribe Message"))
+        await eventsub.listen_channel_subscription_message(user_id, self.make_chat_event("SubscribeMessage"))
 
         await eventsub.listen_channel_raid(self.make_chat_event("Raid"), user_id)
-        # await eventsub.listen_channel_raid(self.make_chat_event("RaidOut"), None, user_id)
 
         await eventsub.listen_channel_follow_v2(user_id, user_id, self.make_chat_event("Follow"))
         
