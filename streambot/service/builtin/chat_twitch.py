@@ -140,6 +140,15 @@ class TwitchEventData(EventData, Generic[T]):
     event:str
     data:T
 
+@dataclass
+class TwitchChannelQueryData(QueryData):
+    channel:str
+    force:bool=False
+
+# T = TypeVar("T")
+
+class TwitchQueryResponse(Response, Generic[T]):
+    data:T
 
 
 # -=-=- Service Class -=-=- #
@@ -284,7 +293,7 @@ class TwitchService(BaseService[TwitchConfig]):
         await eventsub.listen_stream_online(user_id, self.make_chat_event("StreamOnline"))
         await eventsub.listen_stream_offline(user_id, self.make_chat_event("StreamOffline"))
 
-        await eventsub.listen_channel_ad_break_begin(user_id, self.make_chat_event("AdsStart"))
+        await eventsub.listen_channel_ad_break_begin(user_id, self.make_chat_event("AdStart"))
 
         await eventsub.listen_channel_bits_use(user_id, self.make_chat_event("BitsUsed"))
 
@@ -349,17 +358,26 @@ class TwitchService(BaseService[TwitchConfig]):
         event_bus.register("TwitchRedeemEvent", self.event_on_redeem)
         
     def __register_queries__(self, query_bus):
-        # query_bus.register(
-        #     'GetSoundService', 
-        #     QueryBus.lambda_handler(lambda _: Response(self, service=self))
-        # )
+        # -=-=- #
+        def response(cb:Callable):
+            async def func(data:TwitchChannelQueryData):
+                resp = cb(channel=data.channel, force=data.force)
+                return TwitchQueryResponse(resp, data=resp)
+            return func
+
+        query_bus.register("GetTwitchUser", response(self.get_user))
+        query_bus.register("GetTwitchUserID", response(self.get_user_id))
+        query_bus.register("GetTwitchStreamData", response(self.get_stream_data))
+        query_bus.register("GetTwitchVODData", response(self.get_last_vod_data))
+        query_bus.register("GetTwitchChannelData", response(self.get_channel_data))
+
 
         query_bus.register("GetTwitchViewers", self.query_get_twitch_viewers)
 
     # -=-=- #
 
     async def get_user(self, channel:str, force:bool=False) -> TwitchUser:
-        if channel not in self.user_data:
+        if force or channel not in self.user_data:
             self.user_data[channel] = await first(self.twitch_user.get_users(logins=[channel]))
         return self.user_data[channel]
     
@@ -367,25 +385,20 @@ class TwitchService(BaseService[TwitchConfig]):
         user = await self.get_user(channel, force)
         if user: return user.id
     
-    async def get_stream_data(self, channel:str) -> Stream:
-        user_id = await self.get_user_id(channel)
+    async def get_stream_data(self, channel:str, force:bool=False) -> Stream:
+        user_id = await self.get_user_id(channel, force)
         if user_id: return await first(self.twitch_user.get_streams(user_id=[user_id]))
     
-    async def get_last_vod_data(self, channel:str) -> Video:
-        user_id = await self.get_user_id(channel)
+    async def get_last_vod_data(self, channel:str, force:bool=False) -> Video:
+        user_id = await self.get_user_id(channel, force)
         if user_id: return await first(self.twitch_user.get_videos(user_id=[user_id], video_type=VideoType.ARCHIVE))
 
-    async def get_channel_data(self, channel:str) -> ChannelInformation:
+    async def get_channel_data(self, channel:str, force:bool=False) -> ChannelInformation:
         # self.twitch_user.get_channel_information()
-        user_id = await self.get_user_id(channel)
+        user_id = await self.get_user_id(channel, force)
         if user_id: return (await self.twitch_user.get_channel_information(broadcaster_id=[user_id]))[0]
 
     # -=-=- #
-
-    # async def update_view_count(self):
-    #     stream = await self.get_stream_data(self.config.account_user)
-    #     view_count = stream is not None and stream.viewer_count or 0
-    #     await self.event_bus.emit("UpdateViewersTwitch", UpdateViewersTwitchData(viewers=view_count))
 
     # -=-=- Events -=-=- #
 
@@ -412,6 +425,7 @@ class TwitchService(BaseService[TwitchConfig]):
         stream = await self.get_stream_data(self.config.account_user)
         viewers = stream is not None and stream.viewer_count or 0
         return Response(viewers, viewers=viewers)
+
 
 
 # EOF #
