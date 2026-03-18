@@ -371,7 +371,6 @@ class TwitchService(BaseService[TwitchConfig]):
         query_bus.register("GetTwitchVODData", response(self.get_last_vod_data))
         query_bus.register("GetTwitchChannelData", response(self.get_channel_data))
 
-
         query_bus.register("GetTwitchViewers", self.query_get_twitch_viewers)
 
     # -=-=- #
