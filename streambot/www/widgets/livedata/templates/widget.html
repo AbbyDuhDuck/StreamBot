@@ -4,14 +4,12 @@ $(document).ready(() => {
     const ws = new WebSocket("ws://127.0.0.1:13337/ws/livedata");
 
     ws.addEventListener("open", () => {
-        console.log("Connected to livedata WebSocket");
     });
 
     // Listen for stop time updates from Python
     ws.addEventListener("message", (event) => {
         try {
             const data = JSON.parse(event.data);
-            console.log("Received message from WebSocket:", data);
 
             if (data.event === "update") {
                 console.log("Received update:", data.message);
@@ -34,7 +32,6 @@ $(document).ready(() => {
     });
 
     ws.addEventListener("close", () => {
-        console.log("WebSocket disconnected");
     });
 });
 </script>
@@ -45,7 +42,6 @@ $(document).ready(() => {
 
     #livedata {
         margin: 0px 6px;
-        {# margin-bottom: -6px; #}
     }
     #livedata>*{
         margin-bottom: 3px;
