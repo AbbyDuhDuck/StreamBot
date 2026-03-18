@@ -46,13 +46,13 @@ USER_COLORS = [
     "#2EC4B6",  # teal
     "#00BBF9",  # sky blue
     "#3A86FF",  # blue
-    "#4361EE",  # royal blue
+    "#f4b2ef",  # Abby Color
     "#8338EC",  # purple
     "#9D4EDD",  # violet
     "#C77DFF",  # lavender purple
-    "#F72585",  # magenta
+    "#ffffff",  # magenta
     "#FF4D8D",  # pink
-    "#FF6F91",  # rose
+    "#4361EE",  # royal blue
     "#F15BB5",  # hot pink
     "#06D6A0",  # aqua green
     "#00F5D4",  # bright aqua
@@ -66,8 +66,6 @@ USER_COLORS = [
     "#E76F51",  # coral
     "#FF006E",  # neon magenta
     "#B5179E",  # deep magenta
-    # "#7209B7",  # deep purple
-    # "#560BAD",  # indigo
 ]
 
 # -=-=- Functions & Classes -=-=- #
