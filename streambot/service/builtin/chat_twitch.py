@@ -293,7 +293,7 @@ class TwitchService(BaseService[TwitchConfig]):
         await eventsub.listen_stream_online(user_id, self.make_chat_event("StreamOnline"))
         await eventsub.listen_stream_offline(user_id, self.make_chat_event("StreamOffline"))
 
-        await eventsub.listen_channel_ad_break_begin(user_id, self.make_chat_event("AdStart"))
+        # await eventsub.listen_channel_ad_break_begin(user_id, self.make_chat_event("AdStart"))
 
         await eventsub.listen_channel_bits_use(user_id, self.make_chat_event("BitsUsed"))
 
@@ -359,9 +359,9 @@ class TwitchService(BaseService[TwitchConfig]):
         
     def __register_queries__(self, query_bus):
         # -=-=- #
-        def response(cb:Callable):
+        def response(cb:Callable[..., Coroutine]):
             async def func(data:TwitchChannelQueryData):
-                resp = cb(channel=data.channel, force=data.force)
+                resp = await cb(channel=data.channel, force=data.force)
                 return TwitchQueryResponse(resp, data=resp)
             return func
 
