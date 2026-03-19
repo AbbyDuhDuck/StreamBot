@@ -51,9 +51,11 @@ class UserSettings:
 
         self.services.enable('webui')
         self.services.enable('sound')
+        
         self.services.enable('chat')
-        self.services.enable('tick')
+        self.services.enable('users')
 
+        self.services.enable('tick')
 
         EventBus.get_instance().register('Stop', EventBus.lambda_action(lambda _: self.stop()))
 

@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Coroutine
 
 from .tick import OnTickData
-from .chat import ChatMessageData, Platform, ChatNotificationData, NotifType
+from .chat import ChatMessageData, Platform, ChatNotificationData, MessageLevel
 from .. import ConfigClass, configclass, BaseService, serviceclass
 from ...signals import EventBus, EventData, QueryBus, QueryData, Response
 import asyncio
@@ -193,7 +193,7 @@ class TwitchService(BaseService[TwitchConfig]):
 
     # -=-=- #
 
-    async def out(self, message:str, _type:NotifType=NotifType.INFO):
+    async def out(self, message:str, _type:MessageLevel=MessageLevel.INFO):
         await self.event_bus.emit("ChatNotification", ChatNotificationData(message=message, type=_type))
 
     # -=-=- #
