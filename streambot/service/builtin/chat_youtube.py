@@ -237,7 +237,8 @@ class YouTubeService(BaseService[YouTubeConfig]):
     async def youtube_chat_callback(self, data):
         # print(f"{data.datetime} [{data.author.name}]-{data.message} {data.amountString}")
         user:str = data.author.name
-        msg:str = emojis.encode(data.message)
+        msg:str = data.message
+        # msg:str = emojis.encode(data.message)
         if user.startswith('@'): user = user[1:]
         # replace with dedicated function and store them incase missing (happens)
         emotes:dict[str, str]=self.parse_emotes(msg, data.messageEx)
@@ -260,7 +261,7 @@ class YouTubeService(BaseService[YouTubeConfig]):
         # -=-=- #
         found = {}
         for emote in emotes:
-            if 'txt' not in emote:
+            if 'txt' not in emote or emote['txt'] == '':
                 print("weird emote found!!!", emote)
                 continue
             if emote['txt'] not in self.emotes:

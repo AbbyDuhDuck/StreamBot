@@ -85,7 +85,7 @@ class UserType(Enum):
     USER = "User"
     BOT = "Bot"
 
-class NotifType(Enum):
+class MessageLevel(Enum):
     INFO = "Info"
     WARNING = "Warning"
     ERROR = "Error"
@@ -102,7 +102,7 @@ class ChatConfig(ConfigClass):
 @dataclass
 class ChatNotificationData(EventData):
     message:str
-    type:NotifType = NotifType.INFO
+    type:MessageLevel = MessageLevel.INFO
 
 
 @dataclass

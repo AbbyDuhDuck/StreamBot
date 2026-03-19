@@ -168,8 +168,21 @@ class SoundService(BaseService[SoundConfig]):
 
     # -=-=- Events -=-=- #
 
+    @dataclass
+    class _GetUserNicknameData(QueryData):
+        message:str
+
     async def event_play_tts(self, data:"PlayTTSData"):
-        self.queue_tts(data.message)
+        msg = data.message.lower()
+        if data.better_say: # better version of the tts say
+            # TODO - word substitution
+            resp:dict[str, dict[str,str]] = (await QueryBus.get_instance().query("GetUserNickname", self._GetUserNicknameData(message=msg))).get()
+            for match in resp:
+                how_say = resp[match].get('nickname', match)
+                how_say = resp[match].get('how_say', how_say)
+                msg = msg.replace(match, how_say)
+
+        self.queue_tts(msg)
     
     async def event_play_sfx(self, data:"PlaySFXData"):
         if data.name not in self.sound_effects:
@@ -184,6 +197,7 @@ class SoundService(BaseService[SoundConfig]):
 @dataclass
 class PlayTTSData(EventData):
     message:str
+    better_say:bool = True
 
 @dataclass
 class PlaySFXData(EventData):
