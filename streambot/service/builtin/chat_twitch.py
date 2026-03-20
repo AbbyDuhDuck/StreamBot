@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Coroutine
 
 from .tick import OnTickData
-from .chat import ChatMessageData, Platform, ChatNotificationData, MessageLevel
+from .chat import ChatMessageData, Platform, UserType, ChatNotificationData, MessageLevel
 from .. import ConfigClass, configclass, BaseService, serviceclass
 from ...signals import EventBus, EventData, QueryBus, QueryData, Response
 import asyncio
@@ -39,16 +39,16 @@ from twitchAPI.helper import first, build_url, TWITCH_API_BASE_URL
 from twitchAPI.twitch import Twitch, TwitchUser, CustomReward, Stream, Video, ChannelInformation, VideoType
 
 from twitchAPI.eventsub.websocket import EventSubWebsocket
-from twitchAPI.object.eventsub import ChannelFollowEvent
+from twitchAPI.object.eventsub import ChannelFollowEvent, ChatMessage
 from twitchAPI.oauth import UserAuthenticator, UserAuthenticationStorageHelper
 
 from twitchAPI.eventsub.webhook import EventSubWebhook
 # from twitchAPI.eventsub.base import EventSubBase
-from twitchAPI.object.eventsub import StreamOnlineEvent, StreamOfflineEvent, ChannelPointsCustomRewardRedemptionAddEvent
+from twitchAPI.object.eventsub import StreamOnlineEvent, StreamOfflineEvent, ChannelPointsCustomRewardRedemptionAddEvent, ChannelAdBreakBeginEvent
 from twitchAPI.object.eventsub import ChannelUpdateEvent
 from twitchAPI.object import eventsub
 from twitchAPI.type import AuthScope, ChatEvent, TwitchAPIException
-from twitchAPI import chat # import Chat, EventData, ChatMessage, ChatSub, ChatCommand
+from twitchAPI import chat
 # from twitchAPI.pubsub import PubSub
 # import asyncio
 # import secret
@@ -62,6 +62,8 @@ from threading import Thread
 
 from dataclasses import dataclass
 from typing import Generic, TypeVar
+
+from .chat import ChatMessageOutData, Platform
 
 # from . import ChatService, ChatSettings
 
@@ -100,6 +102,7 @@ class TwitchConfig(ConfigClass):
         AuthScope.CHAT_READ, AuthScope.CHAT_EDIT,
         AuthScope.CHANNEL_READ_REDEMPTIONS, AuthScope.BITS_READ, AuthScope.CHANNEL_READ_SUBSCRIPTIONS,
         AuthScope.MODERATOR_READ_FOLLOWERS, AuthScope.MODERATOR_MANAGE_SHOUTOUTS, AuthScope.CHANNEL_MANAGE_RAIDS,
+        AuthScope.CHANNEL_MANAGE_ADS, AuthScope.CHANNEL_READ_ADS,
     ])
 
 # -=-=- Data Classes -=-=- #
@@ -293,7 +296,7 @@ class TwitchService(BaseService[TwitchConfig]):
         await eventsub.listen_stream_online(user_id, self.make_chat_event("StreamOnline"))
         await eventsub.listen_stream_offline(user_id, self.make_chat_event("StreamOffline"))
 
-        # await eventsub.listen_channel_ad_break_begin(user_id, self.make_chat_event("AdStart"))
+        await eventsub.listen_channel_ad_break_begin(user_id, self.make_chat_event("AdStart"))
 
         await eventsub.listen_channel_bits_use(user_id, self.make_chat_event("BitsUsed"))
 
@@ -346,6 +349,9 @@ class TwitchService(BaseService[TwitchConfig]):
             emotes=self.parse_emotes(message.text, message.emotes)
         ))
 
+        if message.bits or 0 < 0:
+            await self.event_bus.emit("TwitchMessageBitsUsedEvent", TwitchEventData(message, data=message))
+
     def parse_emotes(self, msg:str, emotes:dict[str, list[dict[str, str]]]|None) -> dict[str, str]:
         if emotes is None: return {}
         return {msg[int(emotes[id][0]['start_position']) : int(emotes[id][0]['end_position'])+1] : id for id in emotes}
@@ -356,6 +362,13 @@ class TwitchService(BaseService[TwitchConfig]):
         self.event_but = event_bus
 
         event_bus.register("TwitchRedeemEvent", self.event_on_redeem)
+        event_bus.register("TwitchAdsStartEvent", self.event_on_ads_start)
+        event_bus.register("ChatMessageOut", self.event_chat_message_out)
+
+        event_bus.register("TwitchShoutoutUser", self.event_shoutout_user)
+        event_bus.register("TwitchStartRaid", self.event_start_raid)
+        event_bus.register("TwitchStopRaid", self.event_stop_raid)
+
         
     def __register_queries__(self, query_bus):
         # -=-=- #
@@ -399,6 +412,49 @@ class TwitchService(BaseService[TwitchConfig]):
 
     # -=-=- #
 
+    async def message_reply(self, message:str, data:ChatMessage|str):
+        if isinstance(data, str):
+            print(f"Cannot reply to message with id {data}")
+            return
+        # -=-=- #
+        await data.reply(message)
+
+    async def message_out(self, message:str, user_type:UserType=UserType.BOT, shared_chat:bool=False):
+        """
+        Send a chat message on Twitch.
+
+        This method sends a message either as the streamer or the bot,
+        and can optionally send it to shared chat if `shared_chat` is True.
+
+        Parameters:
+            msg (str): The message text to send.
+            user_type (UserType): user type
+            shared_chat (bool): If True, send the message to shared chat.
+        """
+        if not self.auth_done: return
+
+        # if you want to force a message to be sent to shared chat
+        if shared_chat:
+            twitch_chat:chat.Chat = self.chat_user if user_type is UserType.USER else self.chat_bot
+            await twitch_chat.send_message(self.config.account_user, message)
+            return
+        
+        # get user ids
+        channel_id = await self.get_user_id(self.config.account_user)
+        user_id = channel_id if user_type is UserType.USER else await self.get_user_id(self.config.account_bot)
+
+        # send the message
+        await self.twitch_app.send_chat_message(channel_id, user_id, message, for_source_only=True)
+
+        # as_user = data.get('as_user', False)
+        # shared_msg = data.get('shared_msg', False)
+        # if not as_user and shared_msg: await self.disply_message_out(
+        #     message, platform="Twitch", 
+        #     user=self.settings.account_bot,
+        #     color="#00ff7f"
+        # )
+        # await self._msg(message, as_user, shared_msg)
+
     # -=-=- Events -=-=- #
 
     async def event_on_redeem(self, data:TwitchEventData[ChannelPointsCustomRewardRedemptionAddEvent]):
@@ -419,12 +475,72 @@ class TwitchService(BaseService[TwitchConfig]):
 
         await self.event_bus.emit(f"On{redeem_id}Redeem", data)
 
+    # -=-=- #
+
+    async def event_on_ads_start(self, data:TwitchEventData[ChannelAdBreakBeginEvent]):
+        # time = data.data.event.started_at
+        # dur = data.data.event.duration_seconds
+        await asyncio.sleep(data.data.event.duration_seconds)
+        await self.event_bus.emit(f"TwitchAdsStopEvent", data)
+
+    # -=-=- #
     
     async def query_get_twitch_viewers(self, _:QueryData) -> Response:
         stream = await self.get_stream_data(self.config.account_user)
         viewers = stream is not None and stream.viewer_count or 0
         return Response(viewers, viewers=viewers)
 
+    
+    async def event_chat_message_out(self, data:"ChatMessageOutData"):
+        if data.platform is not Platform.TWITCH: return
+        # -=-=- #
+        await self.message_out(data.message, data.user_type, data.shared_chat)
 
+    # -=-=- #
+
+    async def event_shoutout_user(self, data:EventData):
+        if not hasattr(data, 'user'): return
+        # -=-=- #
+        user:str = data.user.replace('@', '').strip().lower()
+        user_id = await self.get_user_id(self.config.account_user)
+        other_id = await self.get_user_id(user)
+        # await self.out(f"Shouting out user: {user}")
+        # -=-=- #
+        for i in range(3):
+            try: 
+                await self.twitch_user.send_a_shoutout(user_id, other_id, user_id)
+                break
+            except TwitchAPIException as e:
+                await self.out(f"Could not shout out user: {user}", MessageLevel.WARNING)
+                return 
+            except: # remove if doesn't work and just do manually
+                await self.out(f"Retrying shout out (times: {i+1}): {user}", MessageLevel.WARNING)
+                await asyncio.sleep(150)
+            
+        await self.out(f"Shouted out user: {user}")
+        if not hasattr(data, 'user'): return
+
+
+    async def event_start_raid(self, data:EventData):
+        if not hasattr(data, 'user'): return
+        # -=-=- #
+        user:str = data.user.replace('@', '').strip().lower()
+        user_id = await self.get_user_id(self.config.account_user)
+        other_id = await self.get_user_id(user)
+        await self.out(f"Raiding out user: {user}")
+        # -=-=- #
+        try: 
+            await self.twitch_user.start_raid(user_id, other_id)
+            await self.event_bus.emit('TwitchRaidStartedEvent', TwitchEventData(user, data=user))
+        except TwitchAPIException as e:
+            # await self.out(str(e))
+            await self.out(f"Could not raid user: {user}", MessageLevel.ERROR)
+            return
+        
+    async def event_stop_raid(self, _):
+        user_id = await self.get_user_id(self.config.account_user)
+        # -=-=- #
+        await self.twitch_user.cancel_raid(user_id)
+        
 
 # EOF #

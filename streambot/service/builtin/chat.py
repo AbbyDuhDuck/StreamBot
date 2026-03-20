@@ -125,7 +125,7 @@ class ChatMessageData(EventData):
     data:EventData = None
 
 @dataclass
-class MessageOutData(EventData):
+class ChatMessageOutData(EventData):
     message:str
     user_type:UserType = UserType.BOT
     platform:Platform = Platform.TWITCH

@@ -4,7 +4,7 @@
 
 from streambot.service.builtin.webui.webui import WSMessageData, WSMessageOutData
 from streambot.service.builtin.webui.widgets import base
-from streambot.service.builtin.chat import ChatMessageData, ChatNotificationData, MessageOutData, Platform
+from streambot.service.builtin.chat import ChatMessageData, ChatNotificationData, ChatMessageOutData, Platform
 from streambot.service.builtin.commands import parse_command, ChatCommandData
 from streambot.signals.event_bus import EventBus
 
@@ -68,14 +68,14 @@ class Widget(base.Widget):
         self.register("ChatNotification", self.event_chat_notification)
 
     async def event_ws_message(self, event:WSMessageData):
-        # print(f"Received WSMessage ({event.event}): {event.data}")
+        print(f"Received WSMessage ({event.event}): {event.data}")
         if event.event == "message":
             message:str = event.data.get("message", "")
             if message.startswith("!"):
                 cmd, args = parse_command(message)
                 await self.event_bus.emit("ChatCommand", ChatCommandData(command=cmd, args=args, user="AbbyDuhDuck"))
             else:
-                await self.event_bus.emit("MessageOut", MessageOutData(message=message))
+                await self.event_bus.emit("ChatMessageOut", ChatMessageOutData(message=message))
 
     async def event_chat_message(self, event:ChatMessageData):
         # print(f"ChatMessage: {event.user}: {event.message} [{event.timestamp}]")

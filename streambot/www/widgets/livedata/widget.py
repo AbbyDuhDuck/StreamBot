@@ -8,11 +8,11 @@ from streambot.service.builtin.chat_youtube import UpdateViewersYoutubeData
 from streambot.service.builtin.chat_twitch import TwitchEventData
 from streambot.service.builtin.webui.webui import WSMessageData, WSMessageOutData
 from streambot.service.builtin.webui.widgets import base
-from streambot.service.builtin.chat import ChatMessageData, ChatNotificationData, MessageOutData, Platform
+from streambot.service.builtin.chat import ChatMessageData, ChatNotificationData, ChatMessageOutData, Platform
 from streambot.service.builtin.commands import parse_command, ChatCommandData
 from streambot.signals import EventBus, EventData, QueryBus, Response
 
-from twitchAPI.object.eventsub import ChannelRaidData
+from twitchAPI.object.eventsub import ChannelRaidEvent, ChannelAdBreakBeginEvent
 
 import asyncio
 from functools import wraps
@@ -79,8 +79,10 @@ class Widget(base.Widget):
         self.register("OnHalfMinuteTick", self.on_tick)
         self.register("OnFiveMinuteTick", self.on_long_tick)
 
-        # self.register("OnAds", self.on_long_tick)
         self.register("TwitchRaidEvent", self.on_twitch_raid_event)
+
+        self.register("TwitchAdStartEvent", self.on_twitch_ads_start)
+        self.register("TwitchAdStopEvent", self.on_twitch_ads_stop)
 
 
     def register_queries(self, query_bus):
@@ -140,8 +142,17 @@ class Widget(base.Widget):
     
     # -=-=- Events -=-=- #
 
-    async def on_twitch_raid_event(self, data:TwitchEventData[ChannelRaidData]):
-        print(f"[livedata widget] Raid {data.data.from_broadcaster_user_name} with {data.data.viewers}")
+    async def on_twitch_raid_event(self, data:TwitchEventData[ChannelRaidEvent]):
+        print(f"[livedata widget] Raid {data.data.event.from_broadcaster_user_name} with {data.data.event.viewers}")
         self.twitch_raids += 1
-        self.twitch_raid_viewers += data.data.viewers
+        self.twitch_raid_viewers += data.data.event.viewers
         await self.update_raids()
+
+    async def on_twitch_ads_start(self, data:TwitchEventData[ChannelAdBreakBeginEvent]):
+        self.twitch_in_ads = True
+        self.update_in_ads()
+
+    async def on_twitch_ads_stop(self, data:TwitchEventData[ChannelAdBreakBeginEvent]):
+        self.twitch_in_ads = False
+        self.update_in_ads()
+

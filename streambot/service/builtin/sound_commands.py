@@ -78,6 +78,8 @@ class SoundCommandsService(BaseService[ConfigClass]):
         event_bus.register("SetSoundCommand", self.event_set_sound_command)
         event_bus.register("SetSoundGroup", self.event_set_sound_group)
         event_bus.register("SetSoundTrigger", self.event_set_sound_trigger)
+
+        event_bus.register("PlaySFXGroup", self.event_play_sfx_group)
         
     def __register_queries__(self, query_bus):
         # query_bus.register(
@@ -174,6 +176,9 @@ class SoundCommandsService(BaseService[ConfigClass]):
     async def event_set_sound_trigger(self, data:"SetSoundTriggerData"):
         self.set_trigger(data.sound, data.trigger)
 
+
+    async def event_play_sfx_group(self, data:"PlaySFXData"):
+        await self.try_play_sound_group(data.name)
 
 @dataclass
 class SetSoundCommandData(EventData):

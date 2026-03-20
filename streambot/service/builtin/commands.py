@@ -20,7 +20,7 @@ from dataclasses import dataclass
 import enum
 from typing import Any, Callable
 
-from .chat import ChatMessageData, MessageOutData
+from .chat import ChatMessageData, ChatMessageOutData
 from .sound import PlayTTSData
 from .chat_twitch import SetGameData
 from .chat_youtube import SetYouTubeIDData
@@ -93,12 +93,16 @@ class CommandsService(BaseService[ConfigClass]):
         if level == CommandLevel.VIEWER:
             return True
         elif level == CommandLevel.FOLLOWER:
+            return user.lower() in ADMIN_USERS
             return False # TODO: Implement follower check
         elif level == CommandLevel.VIP:
+            return user.lower() in ADMIN_USERS
             return False # TODO: Implement VIP check
         elif level == CommandLevel.MOD:
+            return user.lower() in ADMIN_USERS
             return False # TODO: Implement mod check
         elif level == CommandLevel.HEADMOD:
+            return user.lower() in ADMIN_USERS
             return False # TODO: Implement head mod check
         elif level == CommandLevel.ADMIN:
             return user.lower() in ADMIN_USERS
@@ -141,7 +145,7 @@ class CommandsService(BaseService[ConfigClass]):
         help_message = f"Available commands: {commands_list}"
         
         await EventBus.get_instance().emit("DisplayOut", DisplayOutData(message=help_message))
-        await EventBus.get_instance().emit("MessageOut", MessageOutData(message=help_message))
+        await EventBus.get_instance().emit("MessageOut", ChatMessageOutData(message=help_message))
 
     async def command_tts(self, user:str, args:str):
         await EventBus.get_instance().emit("PlayTTS", PlayTTSData(message=args))

@@ -38,7 +38,7 @@ from .. import ConfigClass, configclass, BaseService, serviceclass
 from ...signals import EventBus, EventData, QueryBus, QueryData, Response
 import asyncio
 
-from .chat import MessageOutData, Platform
+from .chat import ChatMessageOutData, Platform
 from .tick import OnTickData
 
 import emojis
@@ -199,7 +199,7 @@ class YouTubeService(BaseService[YouTubeConfig]):
 
     def __register_events__(self, event_bus):
         event_bus.register("SetYouTubeID", self.event_set_youtube_id)
-        event_bus.register("MessageOut", self.event_message_out)
+        event_bus.register("ChatMessageOut", self.event_chat_message_out)
 
         # event_bus.register("OnHalfMinuteTick", self.event_on_tick)
         
@@ -282,7 +282,7 @@ class YouTubeService(BaseService[YouTubeConfig]):
     # async def event_on_tick(self, _:OnTickData):
     #     await self.update_view_count()
 
-    async def event_message_out(self, data:"MessageOutData"):
+    async def event_chat_message_out(self, data:"ChatMessageOutData"):
         if data.platform is not Platform.YOUTUBE: return
         # -=-=- #
         print("Youtube Message sending isn't available at this time.")

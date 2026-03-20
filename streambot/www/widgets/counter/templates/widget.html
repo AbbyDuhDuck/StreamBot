@@ -1,0 +1,58 @@
+<script>
+$(document).ready(() => { 
+    // Connect to the WebSocket server
+    const ws = new WebSocket("ws://127.0.0.1:13337/ws/counter");
+
+    ws.addEventListener("open", () => {
+        console.log("Connected to chat WebSocket");
+    });
+
+    // Listen for stop time updates from Python
+    ws.addEventListener("message", (event) => {
+        try {
+            const data = JSON.parse(event.data);
+
+            if (data.event === "update") {
+                console.log("Received update:", data.message);
+                if (data.message['counter-count'] !== undefined)
+                    $("#counter-count").html(data.message['counter-count']);
+            }
+        } catch (err) {
+            console.error("Failed to parse WS message:", err);
+        }
+    });
+
+    ws.addEventListener("close", () => {
+        console.log("WebSocket disconnected");
+    });
+
+    $('#counter-increment').on('click', () => {
+        ws.send(JSON.stringify({
+            event: 'increment',
+        }));
+    })
+    $('#counter-decrement').on('click', () => {
+        ws.send(JSON.stringify({
+            event: 'decrement',
+        }));
+    })
+});
+
+
+</script>
+
+<style>
+</style>
+
+<div id="counter">
+    <div class="widget-page">
+        <div class="row">
+            <h1>Counter:</h1>
+            <div>Yahaha: <span id="counter-count">{{counter_count}}</span></div>
+            <div class="button-row">
+                <button id="counter-increment">+</button>
+                <button id="counter-decrement">-</button>
+            </div>
+        </div>
+    </div>
+</div>

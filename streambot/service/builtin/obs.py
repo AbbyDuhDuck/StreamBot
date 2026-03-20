@@ -113,6 +113,8 @@ class OBSService(BaseService[OBSConfig]):
         
         event_bus.register('OBSEnableItem', self.event_set_item_enabled)
         event_bus.register('OBSDisableItem', self.event_set_item_disabled)
+
+        event_bus.register('OBSGotoScene', self.event_goto_scene)
         
     def __register_queries__(self, query_bus:QueryBus):
         query_bus.register(
@@ -149,6 +151,18 @@ class OBSService(BaseService[OBSConfig]):
         if not self.check_connection(): return None
         self.client.set_scene_item_enabled(scene, id, enable)
 
+    # -=-=- #
+
+    def set_item_settings(self, name:str, settings:dict[str, Any], overlay:bool=True):
+        if not self.check_connection(): return None
+        self.client.set_input_settings(name, settings, overlay)
+
+    # -=-=- #
+
+    def goto_scene(self, name:str):
+        if not self.check_connection(): return None
+        self.client.set_current_program_scene(name)
+
     # -=-=- Events -=-=- #
 
     async def event_set_item_enabled(self, data:"EnabledItemData"):
@@ -160,6 +174,9 @@ class OBSService(BaseService[OBSConfig]):
     async def event_get_item_id(self, data:"GetItemIDData") -> "GetItemIDResponse":
         id = self.get_item_id(data.scene, data.item)
         return GetItemIDResponse(scene=data.scene, id=id)
+    
+    async def event_goto_scene(self, data:"GotoSceneData"):
+        self.goto_scene(data.scene)
 
 
 @dataclass
@@ -178,5 +195,8 @@ class EnabledItemData(EventData):
     id:int
     enable:bool=True
 
+@dataclass
+class GotoSceneData(EventData):
+    scene:str
 
 # EOF #
