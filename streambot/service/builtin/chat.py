@@ -49,7 +49,7 @@ USER_COLORS = [
     "#f4b2ef",  # abby pink
     "#8338EC",  # purple
     "#9D4EDD",  # violet
-    "#C77DFF",  # lavender purple
+    "#E76F51",  # coral
     "#9999ff",  # blue purple
     "#FF4D8D",  # pink
     "#4361EE",  # royal blue
@@ -63,7 +63,7 @@ USER_COLORS = [
     "#C7F464",  # yellow-green
     "#FFD166",  # gold
     "#F4A261",  # warm orange
-    "#E76F51",  # coral
+    "#C77DFF",  # lavender purple
     "#FF006E",  # neon magenta
     "#5f9ea0",  # camo blue
 ]
