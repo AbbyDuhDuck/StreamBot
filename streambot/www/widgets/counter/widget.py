@@ -23,7 +23,7 @@ class Widget(base.Widget):
     display_name = "Counter"
     description = "counts..."
 
-    active = True
+    # active = True
 
     event_bus: EventBus | None = EventBus.get_instance()
     query_bus: QueryBus | None = QueryBus.get_instance()
