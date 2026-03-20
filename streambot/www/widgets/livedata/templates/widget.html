@@ -25,6 +25,17 @@ $(document).ready(() => {
                 
                 if (data.message['twitch-in-ads'] !== undefined)
                     $("#twitch-in-ads").prop('hidden', !data.message['twitch-in-ads']);
+
+                if (data.message['twitch-live-state'] !== undefined) {
+                    $("#twitch-live-state").attr("class", function(i, c) {
+                        return c.replace(/\blive-state-\S+/g, "").trim();
+                    }).addClass(`live-state-${data.message['twitch-live-state']}`);
+                }
+                if (data.message['youtube-live-state'] !== undefined) {
+                    $("#youtube-live-state").attr("class", function(i, c) {
+                        return c.replace(/\blive-state-\S+/g, "").trim();
+                    }).addClass(`live-state-${data.message['youtube-live-state']}`);
+                }
             }
         } catch (err) {
             console.error("Failed to parse WS message:", err);
@@ -53,12 +64,22 @@ $(document).ready(() => {
     #livedata i {
         padding: 0px 6px;
     }
+
+    .live-state-connecting { color: #222; }
+    .live-state-connected { color:#555; }
+    .live-state-offline { color: #888;}
+    .live-state-online { color: #ddd;}
+    .live-state-extra { color: white; }
+    #twitch-live-state.live-state-extra { color: #FF0000; }
+    #youtube-live-state.live-state-extra { color: #9146FF; }
 </style>
 
 <div id="livedata">
     <p>Live Data:</p>
     <div class="row">
-        <div><i class="fa fa-twitch"></i><span id="twitch-viewers">{{twitch_viewers or 0}}</span><i class="fa fa-youtube-play"></i><span id="youtube-viewers">{{youtube_viewers or 0}}</span></div>
+        <div>
+            <i class="fa fa-twitch live-state-{{twitch_live_state}}" id="twitch-live-state"></i><span id="twitch-viewers">{{twitch_viewers or 0}}</span>
+            <i class="fa fa-youtube-play live-state-{{youtube_live_state}}" id="youtube-live-state"></i><span id="youtube-viewers">{{youtube_viewers or 0}}</span></div>
         <div><span {{ 'hidden' if not twitch_in_ads else '' }} id="twitch-in-ads">In Ads</span></div>
         <div><i class="fa fa-parachute-box"></i><span id="twitch-raids">{{twitch_raids or 0}}</span><i class="fa fa-user"></i><span id="twitch-raid-viewers">{{twitch_raid_viewers or 0}}</span></div>
     </div>

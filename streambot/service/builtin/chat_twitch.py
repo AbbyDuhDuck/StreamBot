@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Coroutine
 
 from .tick import OnTickData
-from .chat import ChatMessageData, Platform, UserType, ChatNotificationData, MessageLevel
+from .chat import ChatMessageData, Platform, UserType, ChatNotificationData, MessageLevel, LiveState, ChatStatusChangeData
 from .. import ConfigClass, configclass, BaseService, serviceclass
 from ...signals import EventBus, EventData, QueryBus, QueryData, Response
 import asyncio
@@ -65,6 +65,8 @@ from typing import Generic, TypeVar
 
 from .chat import ChatMessageOutData, Platform
 
+from streambot.core.decorators import debounce
+
 # from . import ChatService, ChatSettings
 
 # -=-=- Setup webbrowser -=-=- #
@@ -88,6 +90,21 @@ webbrowser.register("operaGX", None, webbrowser.GenericBrowser([OPERAGX_PATH, "-
 # ]
 
 # -=-=- Functions & Classes -=-=- #
+
+def is_channel_live(broadcaster_login, client_id, access_token) -> bool:
+    url = f'https://api.twitch.tv/helix/streams?user_login={broadcaster_login}'
+    headers = {
+        'Client-ID': client_id,
+        'Authorization': f'Bearer {access_token}'
+    }
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        data = response.json().get('data', [])
+        return len(data) > 0
+    else:
+        print(f"Error checking stream status: {response.status_code}, {response.text}")
+        return False
 
 # -=-=- Config Class -=-=- #
 
@@ -170,6 +187,9 @@ class TwitchService(BaseService[TwitchConfig]):
     auth_done:bool = False
     _is_stopping:bool = False
     # -=-=- #
+    viewers:int = 0
+    live_state:LiveState = LiveState.CONNECTING
+    # -=-=- #
     event_bus:EventBus = EventBus.get_instance()
 
     async def start(self):
@@ -179,6 +199,8 @@ class TwitchService(BaseService[TwitchConfig]):
         # -=-=- #
         await self._start_bots()
         await self._start_events()
+        # -=-=- #
+        await self.poll_data()
 
     async def stop(self):
         print("Stopping Twitch Service")
@@ -322,9 +344,17 @@ class TwitchService(BaseService[TwitchConfig]):
 
     # -=-=- #
 
+    async def set_live_state(self, state:LiveState, push:bool=True):
+        if self.live_state is state: return 
+        # -=-=- #
+        self.live_state = state
+        status = {'live_state':self.live_state}
+        if push: await self.event_bus.emit(f"ChatStatusChangeEvent", ChatStatusChangeData(platform=Platform.TWITCH, status=status))
+        
+
     async def chatevent_on_ready(self, event:chat.EventData):
         print("Twitch Started")
-        # TODO: emit twitch started event
+        await self.set_live_state(LiveState.CONNECTED)
 
     async def chatevent_on_message(self, message:chat.ChatMessage):
         # print(f"message by {message.user.display_name} from {message.room.name} chat")
@@ -369,7 +399,13 @@ class TwitchService(BaseService[TwitchConfig]):
         event_bus.register("TwitchStartRaid", self.event_start_raid)
         event_bus.register("TwitchStopRaid", self.event_stop_raid)
 
+        # event_bus.register("TwitchStreamOnlineEvent", self.event_on_redeem)
+        # event_bus.register("TwitchStreamOfflineEvent", self.event_on_redeem)
         
+        event_bus.register("OnHalfMinuteTick", self.event_on_tick)
+        # self.register("OnFiveMinuteTick", self.on_long_tick)
+        
+
     def __register_queries__(self, query_bus):
         # -=-=- #
         def response(cb:Callable[..., Coroutine]):
@@ -409,6 +445,25 @@ class TwitchService(BaseService[TwitchConfig]):
         # self.twitch_user.get_channel_information()
         user_id = await self.get_user_id(channel, force)
         if user_id: return (await self.twitch_user.get_channel_information(broadcaster_id=[user_id]))[0]
+
+    # -=-=- #
+
+    @debounce(10)
+    async def poll_data(self):
+        stream = await self.get_stream_data(self.config.account_user)
+        if stream is None:
+            self.viewers = 0 # I think....
+            await self.set_live_state(LiveState.OFFLINE)
+            return 
+        # -=-=- #
+        self.viewers = stream.viewer_count
+        await self.set_live_state(LiveState.ONLINE, False)
+        # -=-=- #
+        status = {
+            'live_viewers': self.viewers,
+            'live_state':self.live_state,
+        }
+        await self.event_bus.emit(f"ChatStatusChangeEvent", ChatStatusChangeData(platform=Platform.TWITCH, status=status))
 
     # -=-=- #
 
@@ -456,6 +511,19 @@ class TwitchService(BaseService[TwitchConfig]):
         # await self._msg(message, as_user, shared_msg)
 
     # -=-=- Events -=-=- #
+
+    async def event_on_tick(self, _:OnTickData):
+        await self.poll_data()
+
+    async def query_get_twitch_viewers(self, _:QueryData) -> Response:
+        await self.poll_data()
+        return Response(self.viewers, viewers=self.viewers)
+    
+    async def query_get_twitch_live_state(self, _:QueryData) -> Response:
+        await self.poll_data()
+        return Response(self.live_state, live_state=self.live_state)
+
+    # -=-=- #
 
     async def event_on_redeem(self, data:TwitchEventData[ChannelPointsCustomRewardRedemptionAddEvent]):
         redeem = data.data.event.reward.title

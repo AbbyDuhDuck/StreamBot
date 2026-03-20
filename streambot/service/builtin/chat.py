@@ -90,6 +90,14 @@ class MessageLevel(Enum):
     WARNING = "Warning"
     ERROR = "Error"
 
+class LiveState(Enum):
+    CONNECTING = "Connectiing"
+    CONNECTED = "Connected"
+    OFFLINE = "Offline"
+    ONLINE = "Online"
+    EXTRA = "Extra"
+
+
 # -=-=- Config Class -=-=- #
 
 @configclass
@@ -98,6 +106,12 @@ class ChatConfig(ConfigClass):
 
 
 # -=-=- Data Classes -=-=- #
+
+@dataclass
+class ChatStatusChangeData(EventData):
+    platform:Platform
+    status:dict[str, Any]
+
 
 @dataclass
 class ChatNotificationData(EventData):

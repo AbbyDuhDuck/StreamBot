@@ -8,44 +8,15 @@ from streambot.service.builtin.chat_youtube import UpdateViewersYoutubeData
 from streambot.service.builtin.chat_twitch import TwitchEventData
 from streambot.service.builtin.webui.webui import WSMessageData, WSMessageOutData
 from streambot.service.builtin.webui.widgets import base
-from streambot.service.builtin.chat import ChatMessageData, ChatNotificationData, ChatMessageOutData, Platform
+from streambot.service.builtin.chat import ChatMessageData, ChatNotificationData, ChatMessageOutData, Platform, LiveState, ChatStatusChangeData
 from streambot.service.builtin.commands import parse_command, ChatCommandData
 from streambot.signals import EventBus, EventData, QueryBus, Response
+from streambot.core.decorators import debounce
 
 from twitchAPI.object.eventsub import ChannelRaidEvent, ChannelAdBreakBeginEvent
 
 import asyncio
 from functools import wraps
-
-def debounce(wait: float):
-    """
-    Debounce decorator for async functions.
-    Only calls the function after `wait` seconds have passed since the last call.
-    Any calls during the wait period cancel the previous scheduled call.
-    """
-    def decorator(func):
-        task_name = f"_debounce_task_{func.__name__}"
-
-        @wraps(func)
-        async def wrapper(self, *args, **kwargs):
-            # Cancel any existing task
-            task = getattr(self, task_name, None)
-            if task and not task.done():
-                task.cancel()
-
-            # Schedule new task
-            async def call_later():
-                try:
-                    await asyncio.sleep(wait)
-                    await func(self, *args, **kwargs)
-                except asyncio.CancelledError:
-                    pass  # Ignore if cancelled by a new call
-
-            new_task = asyncio.create_task(call_later())
-            setattr(self, task_name, new_task)
-
-        return wrapper
-    return decorator
 
 
 class Widget(base.Widget):
@@ -61,7 +32,9 @@ class Widget(base.Widget):
     EVENTS = [ChatMessageData, ChatNotificationData, WSMessageData, WSMessageOutData]
 
     twitch_viewers:int = 0
+    twitch_live_state:LiveState = LiveState.CONNECTING
     youtube_viewers:int = 0
+    youtube_live_state:LiveState = LiveState.CONNECTING
 
     twitch_raids:int = 0
     twitch_raid_viewers:int = 0
@@ -76,17 +49,18 @@ class Widget(base.Widget):
     def register_events(self, event_bus: EventBus):
         self.event_bus = event_bus
 
-        self.register("OnHalfMinuteTick", self.on_tick)
-        self.register("OnFiveMinuteTick", self.on_long_tick)
-
         self.register("TwitchRaidEvent", self.on_twitch_raid_event)
 
         self.register("TwitchAdStartEvent", self.on_twitch_ads_start)
         self.register("TwitchAdStopEvent", self.on_twitch_ads_stop)
 
+        self.register("ChatStatusChangeEvent", self.on_status_change)
+
 
     def register_queries(self, query_bus):
         self.query_bus = query_bus
+
+    # -=-=- #
 
     @debounce(3)
     async def update_all(self):
@@ -95,13 +69,33 @@ class Widget(base.Widget):
             'youtube-viewers': self.youtube_viewers,
             'twitch-raids': self.twitch_raids,
             'twitch-raid-viewers': self.twitch_avg_viewers,
+            'twitch-live-state': self.twitch_live_state.name.lower(),
+            'youtube-live-state': self.youtube_live_state.name.lower(),
         }))
+
+    @debounce(3)
+    async def update_status_change(self):
+        await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="livedata", event='update', message={
+            'twitch-viewers': self.twitch_viewers,
+            'youtube-viewers': self.youtube_viewers,
+            'twitch-live-state': self.twitch_live_state.name.lower(),
+            'youtube-live-state': self.youtube_live_state.name.lower(),
+        }))
+
+    # -=-=- #
 
     @debounce(3)
     async def update_viewers(self):
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="livedata", event='update', message={
             'twitch-viewers': self.twitch_viewers,
             'youtube-viewers': self.youtube_viewers,
+        }))
+
+    @debounce(3)
+    async def update_live_state(self):
+        await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="livedata", event='update', message={
+            'twitch-live-state': self.twitch_live_state.name.lower(),
+            'youtube-live-state': self.youtube_live_state.name.lower(),
         }))
 
     async def update_in_ads(self):
@@ -121,13 +115,13 @@ class Widget(base.Widget):
         resp:Response = await self.query_bus.query("GetYouTubeViewers", {})
         self.youtube_viewers = resp.get()
 
-    async def on_tick(self, _:EventData):
-        await self.get_viewers()
-        await self.update_viewers()
-
-    async def on_long_tick(self, _:EventData):
-        await self.get_viewers()
-        await self.update_all()
+    async def get_live_state(self):
+        resp:Response = await self.query_bus.query("GetTwitchLiveState", {})
+        self.twitch_live_state = resp.get()
+        resp:Response = await self.query_bus.query("GetYouTubeLiveState", {})
+        self.youtube_live_state = resp.get()
+    
+    # -=-=- #
 
     def context(self):
         return {
@@ -138,6 +132,9 @@ class Widget(base.Widget):
             'twitch_raid_viewers': self.twitch_avg_viewers,
 
             'twitch_in_ads': self.twitch_in_ads,
+
+            'twitch_live_state': self.twitch_live_state.name.lower(),
+            'youtube_live_state': self.youtube_live_state.name.lower(),
         }
     
     # -=-=- Events -=-=- #
@@ -155,4 +152,26 @@ class Widget(base.Widget):
     async def on_twitch_ads_stop(self, data:TwitchEventData[ChannelAdBreakBeginEvent]):
         self.twitch_in_ads = False
         await self.update_in_ads()
+
+    async def on_status_change(self, data:ChatStatusChangeData):
+        print(f"{data.platform.value} Status Changed")
+        if data.platform is Platform.TWITCH:
+            await self.on_twitch_status_change(data, False)
+        if data.platform is Platform.YOUTUBE:
+            await self.on_youtube_status_change(data, False)
+        await self.update_status_change()
+
+    async def on_twitch_status_change(self, data:ChatStatusChangeData, push:bool=True):
+        if data.platform is not Platform.TWITCH: return
+        # -=-=- #
+        self.twitch_viewers = data.status.get('live_viewers', self.twitch_viewers)
+        self.twitch_live_state = data.status.get('live_state', self.twitch_live_state)
+        if push: await self.update_status_change()
+
+    async def on_youtube_status_change(self, data:ChatStatusChangeData, push:bool=True):
+        if data.platform is not Platform.YOUTUBE: return
+        # -=-=- #
+        self.youtube_viewers = data.status.get('live_viewers', self.youtube_viewers)
+        self.youtube_live_state = data.status.get('live_state', self.youtube_live_state)
+        if push: await self.update_status_change()
 

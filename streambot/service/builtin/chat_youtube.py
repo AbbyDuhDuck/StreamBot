@@ -37,8 +37,9 @@ from typing import Any, Callable
 from .. import ConfigClass, configclass, BaseService, serviceclass
 from ...signals import EventBus, EventData, QueryBus, QueryData, Response
 import asyncio
+from streambot.core.decorators import debounce
 
-from .chat import ChatMessageOutData, Platform
+from .chat import ChatMessageOutData, Platform, LiveState, ChatStatusChangeData
 from .tick import OnTickData
 
 import emojis
@@ -71,66 +72,84 @@ class ReusableAsyncClient(httpx.AsyncClient):
     async def __aexit__(self, *args):
         pass
 
-async def get_youtube_live_viewers(video_id: str) -> int | None:
+async def get_youtube_data_unsafe(video_id: str) -> dict[str, Any]:
     url = f"https://www.youtube.com/watch?v={video_id}"
     async with httpx.AsyncClient() as client:
         resp = await client.get(url)
         html = resp.text
 
-    # # Extract the JSON blob from the HTML
-    # json_match = re.search(r'var ytInitialData = ({.*?});</script>', html, re.DOTALL)
-    # if json_match:
-    #     data = json.loads(json_match.group(1))
-
-    #     # Recursive search function
-    #     def find_view_count(obj, path="root"):
-    #         if isinstance(obj, dict):
-    #             for k, v in obj.items():
-    #                 current_path = f"{path}['{k}']"
-    #                 if k == "viewCount" and "runs" in v and len(v["runs"]) > 0:
-    #                     return current_path, v["runs"][0]["text"]
-    #                 result = find_view_count(v, current_path)
-    #                 if result:
-    #                     return result
-    #         elif isinstance(obj, list):
-    #             for i, item in enumerate(obj):
-    #                 current_path = f"{path}[{i}]"
-    #                 result = find_view_count(item, current_path)
-    #                 if result:
-    #                     return result
-    #         return None
-
-    #     result = find_view_count(data)
-    #     if result:
-    #         path, count = result
-    #         print("Path to viewCount:", path)
-    #         print("LIVE VIEWERS:", count)
-    #     else:
-    #         print("viewCount not found")
-
+    resp = {}
 
     # Extract the JSON blob from the HTML
     json_match = re.search(r'var ytInitialData = ({.*?});</script>', html, re.DOTALL)
     if json_match:
         data = json.loads(json_match.group(1))
 
-        # Direct access using the full path
-        view_count_data = data['contents']['twoColumnWatchNextResults']['results']['results']['contents'][0]\
-                        ['videoPrimaryInfoRenderer']['viewCount']['videoViewCountRenderer']['viewCount']
-        # Get the actual number
-        live_viewers = view_count_data.get('runs', [{}])[0].get('text')
-        if live_viewers: return int(live_viewers.replace(',',''))
+        # Recursive search function
+        def find_view_count(obj, path="root"):
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    current_path = f"{path}['{k}']"
+                    if k == "viewCount" and "runs" in v and len(v["runs"]) > 0:
+                        return current_path, v["runs"][0]["text"]
+                    result = find_view_count(v, current_path)
+                    if result:
+                        return result
+            elif isinstance(obj, list):
+                for i, item in enumerate(obj):
+                    current_path = f"{path}[{i}]"
+                    result = find_view_count(item, current_path)
+                    if result:
+                        return result
+            return None
 
-    # get via rough match
-    rough_match = re.search(r'"viewCount":{"runs":\[{"text":"([\d,]+)"', html, re.MULTILINE)
-    if rough_match:
-        # print("FULL MATCH TEXT:", match.group(0))  # full text that matched the regex
-        # print("NUMBER ONLY:", match.group(1))      # the captured number
-        # print("---")
-        live_viewers = rough_match.group(1) # the captured number
-        if live_viewers: return int(live_viewers.replace(',',''))
+        result = find_view_count(data)
+        if result:
+            path, live_viewers = result
+            # print("Path to viewCount:", path)
+            # print("LIVE VIEWERS:", count)
+            # -=-=- #
+            # Get the actual number
+            if 'waiting' in live_viewers:
+                live_viewers = live_viewers.replace('waiting', '').strip()
+                resp['live_state'] = LiveState.OFFLINE
+            if 'watching' in live_viewers:
+                resp['live_state'] = LiveState.ONLINE
+                live_viewers = live_viewers.replace('watching', '').replace('now', '').strip()
+            # print(f'Json match: {live_viewers}')
+            if live_viewers: resp['live_viewers'] = int(live_viewers.replace(',',''))
+        else:
+            # print("viewCount not found")
+            pass
 
-    return None
+    return resp
+
+async def get_youtube_data(video_id: str) -> dict[str, Any]:
+    url = f"https://www.youtube.com/watch?v={video_id}"
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url)
+        html = resp.text
+
+    # Extract ytInitialPlayerResponse (more stable than ytInitialData)
+    match = re.search(r'ytInitialPlayerResponse\s*=\s*({.*?});', html)
+    if not match:
+        return {"live_state": LiveState.OFFLINE, "live_viewers": 0}
+    # -=-=- #
+    data = json.loads(match.group(1))
+    video_details = data.get("videoDetails", {})
+    microformat = data.get("microformat", {}).get("playerMicroformatRenderer", {})
+    is_live = video_details.get("isLiveContent", False)
+    is_upcoming = microformat.get("liveBroadcastDetails", {}).get("isUpcoming", False)
+    # print(is_live, is_upcoming)
+    # -=-=- #
+    resp = {}
+    if is_upcoming: resp['live_state'] = LiveState.OFFLINE
+    if is_live: resp['live_state'] = LiveState.ONLINE
+    # -=-=- #
+    return {**await get_youtube_data_unsafe(video_id), **resp}
+
+
 
 # -=-=- Config Class -=-=- #
 
@@ -175,10 +194,16 @@ class YouTubeService(BaseService[YouTubeConfig]):
 
     emotes:dict[str, str] = {}
 
+    # -=-=- #
+
+    live_state:LiveState = LiveState.CONNECTING
+    viewers:int = 0
+
     async def start(self):
         print(f"Starting YouTube Service")
         self.new_livechat(self.config.video_id)
         # self.new_livechat(self.config.video_id)
+        await self.poll_data()
 
     async def stop(self):
         print("Stopping YouTube Service")
@@ -200,8 +225,9 @@ class YouTubeService(BaseService[YouTubeConfig]):
     def __register_events__(self, event_bus):
         event_bus.register("SetYouTubeID", self.event_set_youtube_id)
         event_bus.register("ChatMessageOut", self.event_chat_message_out)
-
-        # event_bus.register("OnHalfMinuteTick", self.event_on_tick)
+        
+        event_bus.register("OnHalfMinuteTick", self.event_on_tick)
+        # self.register("OnFiveMinuteTick", self.on_long_tick)
         
     def __register_queries__(self, query_bus):
         query_bus.register(
@@ -210,7 +236,16 @@ class YouTubeService(BaseService[YouTubeConfig]):
         )
 
         query_bus.register('GetYouTubeViewers', self.query_get_youtube_viewers)
-        pass
+        query_bus.register('GetYouTubeLiveState', self.query_get_youtube_live_state)
+
+    # -=-=- #
+
+    @debounce(10)
+    async def poll_data(self):
+        data = await get_youtube_data(self.config.video_id)
+        self.viewers = data.get('live_viewers', self.viewers)
+        self.live_state = data.get('live_state', self.live_state)
+        await self.event_bus.emit(f"ChatStatusChangeEvent", ChatStatusChangeData(platform=Platform.YOUTUBE, status=data))
 
     # -=-=- #
 
@@ -279,8 +314,8 @@ class YouTubeService(BaseService[YouTubeConfig]):
 
     # -=-=- Events -=-=- #
 
-    # async def event_on_tick(self, _:OnTickData):
-    #     await self.update_view_count()
+    async def event_on_tick(self, _:OnTickData):
+        await self.poll_data()
 
     async def event_chat_message_out(self, data:"ChatMessageOutData"):
         if data.platform is not Platform.YOUTUBE: return
@@ -293,8 +328,12 @@ class YouTubeService(BaseService[YouTubeConfig]):
         self.new_livechat(self.config.video_id)
 
     async def query_get_youtube_viewers(self, _:QueryData) -> Response:
-        viewers = await get_youtube_live_viewers(self.config.video_id)
-        return Response(viewers, viewers=viewers)
+        await self.poll_data()
+        return Response(self.viewers, viewers=self.viewers)
+    
+    async def query_get_youtube_live_state(self, _:QueryData) -> Response:
+        await self.poll_data()
+        return Response(self.live_state, live_state=self.live_state)
 
 
 # EOF #
