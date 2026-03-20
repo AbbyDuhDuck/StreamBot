@@ -481,7 +481,7 @@ class TwitchService(BaseService[TwitchConfig]):
         # time = data.data.event.started_at
         # dur = data.data.event.duration_seconds
         await asyncio.sleep(data.data.event.duration_seconds)
-        await self.event_bus.emit(f"TwitchAdsStopEvent", data)
+        await self.event_bus.emit(f"TwitchAdStopEvent", data)
 
     # -=-=- #
     
