@@ -150,9 +150,9 @@ class Widget(base.Widget):
 
     async def on_twitch_ads_start(self, data:TwitchEventData[ChannelAdBreakBeginEvent]):
         self.twitch_in_ads = True
-        self.update_in_ads()
+        await self.update_in_ads()
 
     async def on_twitch_ads_stop(self, data:TwitchEventData[ChannelAdBreakBeginEvent]):
         self.twitch_in_ads = False
-        self.update_in_ads()
+        await self.update_in_ads()
 
