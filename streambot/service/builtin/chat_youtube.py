@@ -126,28 +126,26 @@ async def get_youtube_data_unsafe(video_id: str) -> dict[str, Any]:
 
 async def get_youtube_data(video_id: str) -> dict[str, Any]:
     url = f"https://www.youtube.com/watch?v={video_id}"
-
     async with httpx.AsyncClient() as client:
         resp = await client.get(url)
         html = resp.text
-
-    # Extract ytInitialPlayerResponse (more stable than ytInitialData)
-    match = re.search(r'ytInitialPlayerResponse\s*=\s*({.*?});', html)
-    if not match:
-        return {"live_state": LiveState.OFFLINE, "live_viewers": 0}
-    # -=-=- #
-    data = json.loads(match.group(1))
-    video_details = data.get("videoDetails", {})
-    microformat = data.get("microformat", {}).get("playerMicroformatRenderer", {})
-    is_live = video_details.get("isLiveContent", False)
-    is_upcoming = microformat.get("liveBroadcastDetails", {}).get("isUpcoming", False)
-    # print(is_live, is_upcoming)
     # -=-=- #
     resp = {}
+    resp_unsafe = await get_youtube_data_unsafe(video_id)
+    # -=-=- #
+    match = re.search(r'ytInitialPlayerResponse\s*=\s*({.*?});', html)
+    if not match:
+        return {**resp_unsafe, "live_state": LiveState.OFFLINE, "live_viewers": 0}
+    # -=-=- #
+    data = json.loads(match.group(1))
+    microformat = data.get("microformat", {}).get("playerMicroformatRenderer", {})
+    is_live = microformat.get("liveBroadcastDetails", {}).get("isLiveNow", False)
+    is_upcoming = microformat.get("liveBroadcastDetails", {}).get("isUpcoming", False)
+    # -=-=- #
     if is_upcoming: resp['live_state'] = LiveState.OFFLINE
     if is_live: resp['live_state'] = LiveState.ONLINE
     # -=-=- #
-    return {**await get_youtube_data_unsafe(video_id), **resp}
+    return {**resp_unsafe, **resp}
 
 
 
@@ -243,9 +241,11 @@ class YouTubeService(BaseService[YouTubeConfig]):
     @debounce(10)
     async def poll_data(self):
         data = await get_youtube_data(self.config.video_id)
+        # -=-=- #
         self.viewers = data.get('live_viewers', self.viewers)
         self.live_state = data.get('live_state', self.live_state)
-        await self.event_bus.emit(f"ChatStatusChangeEvent", ChatStatusChangeData(platform=Platform.YOUTUBE, status=data))
+        status = {'live_state':self.live_state, **data}
+        await self.event_bus.emit(f"ChatStatusChangeEvent", ChatStatusChangeData(platform=Platform.YOUTUBE, status=status))
 
     # -=-=- #
 
@@ -259,12 +259,12 @@ class YouTubeService(BaseService[YouTubeConfig]):
             exception_handler=pytchat_exception_handler
 
         )
+        if livechat.is_replay(): livechat.terminate()
         return livechat
 
     async def chat_callback(self, data:Chatdata):
-        # vc = await get_youtube_live_viewers(self.config.video_id)
-        # print("Current viewers:", vc, type(vc))
-        
+        if self.livechat.is_replay(): return
+        # -=-=- #
         for chat in data.items:
             await self.youtube_chat_callback(chat)
             await data.tick_async() # AWK
@@ -325,7 +325,10 @@ class YouTubeService(BaseService[YouTubeConfig]):
     async def event_set_youtube_id(self, data:SetYouTubeIDData):
         print(f"Setting Youtube ID to {data.video_id}")
         self.config.video_id = data.video_id
+        self.viewers = 0
+        self.live_state = LiveState.CONNECTING
         self.new_livechat(self.config.video_id)
+        await self.poll_data()
 
     async def query_get_youtube_viewers(self, _:QueryData) -> Response:
         await self.poll_data()
