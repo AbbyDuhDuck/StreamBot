@@ -303,16 +303,3 @@ class WebUIService(BaseService[WebUIConfig]):
 
     #     self.event_bridge.register_queries(query_bus)
     #     self.widget_manager.register_queries(query_bus)
-
-
-# -=-=- DISPLAY DATA TYPES -=-=- #
-class DisplayMessageType(Enum):
-    INFO = "Info"
-    WARNING = "Warning"
-    ERROR = "Error"
-
-
-@dataclass
-class DisplayOutData(EventData):
-    message: str
-    type: DisplayMessageType = DisplayMessageType.INFO
