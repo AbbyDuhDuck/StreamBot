@@ -15,7 +15,7 @@
     <div class="message">
         <div class="user">
             <div class="badges">{{message.platform_icon}}{{message.badges}}</div>
-            <p class="username" has-ads="{{message.has_ads}}" style="color:{{message.color}};">{{message.user}}</p>
+            <p class="username" has-ads="{{message.has_ads | lower}}" style="color:{{message.color}};">{{message.user}}</p>
         </div>
         {% if message.emotes != {} %}
         <div class="content"><span class="raw-emotes" emotes='{{ message.emotes | tojson }}' platform="{{message.platform}}">{{message.message}}</span></div>
