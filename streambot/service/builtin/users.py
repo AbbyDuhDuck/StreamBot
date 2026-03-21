@@ -93,7 +93,7 @@ class UsersService(BaseService[UsersConfig]):
     greetings:dict[str, list[str]] = {}
     lurk_messages:dict[str, list[str]] = {}
 
-    _ignored_users = ["abbyduhduck", 'KofiStreamBot', 'nightbot', 'StreamElements']
+    _ignored_users = ["abbyduhduck", 'KofiStreamBot', 'nightbot', 'StreamElements', 'blerp']
 
     async def start(self):
         # print(f"Starting AI Service")
