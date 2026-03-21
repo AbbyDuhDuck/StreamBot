@@ -102,7 +102,6 @@ class WebUIService(BaseService[WebUIConfig]):
         self.app = FastAPI()
         self.clients: dict[str, list[WebSocket]] = {}
 
-
         self.www_dir = os.path.abspath(os.path.join('streambot', self.config.www_dir))
         self.builtin_widgets_dir = os.path.join(self.www_dir, "widgets")
         self.static_dir = os.path.join(self.www_dir, "static")

@@ -75,6 +75,12 @@ body {
     justify-content: space-between;
     gap: 3px;
 }
+.widget .col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
 
 .widget .button-row {
     display: flex;
@@ -122,6 +128,11 @@ body {
 
     padding: 4px;
     border-radius: 6px;
+}
+
+.widget .small-text {
+    color: #888;
+    font-size: small;
 }
 
 

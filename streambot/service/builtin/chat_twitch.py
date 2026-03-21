@@ -20,6 +20,7 @@ TODO
 
 from enum import Enum
 from dataclasses import dataclass, field
+import random
 from typing import Any, Callable, Coroutine
 
 from .tick import OnTickData
@@ -36,7 +37,7 @@ from typing import Dict, List, override, Type
 
 import requests
 from twitchAPI.helper import first, build_url, TWITCH_API_BASE_URL
-from twitchAPI.twitch import Twitch, TwitchUser, CustomReward, Stream, Video, ChannelInformation, VideoType
+from twitchAPI.twitch import Twitch, TwitchUser, CustomReward, Stream, Video, ChannelInformation, VideoType, Clip
 
 from twitchAPI.eventsub.websocket import EventSubWebsocket
 from twitchAPI.object.eventsub import ChannelFollowEvent, ChatMessage
@@ -164,6 +165,13 @@ class TwitchEventData(EventData, Generic[T]):
 class TwitchChannelQueryData(QueryData):
     channel:str
     force:bool=False
+
+@dataclass
+class TwitchClipQueryData(QueryData):
+    url:str|None = None
+    clip:str|None = None
+    channel:str|None = None
+
 
 # T = TypeVar("T")
 
@@ -413,6 +421,11 @@ class TwitchService(BaseService[TwitchConfig]):
                 resp = await cb(channel=data.channel, force=data.force)
                 return TwitchQueryResponse(resp, data=resp)
             return func
+        def clip_response(cb:Callable[..., Coroutine]):
+            async def func(data:TwitchClipQueryData):
+                resp = await cb(**data.__dict__)
+                return TwitchQueryResponse(resp, data=resp)
+            return func
 
         query_bus.register("GetTwitchUser", response(self.get_user))
         query_bus.register("GetTwitchUserID", response(self.get_user_id))
@@ -421,6 +434,9 @@ class TwitchService(BaseService[TwitchConfig]):
         query_bus.register("GetTwitchChannelData", response(self.get_channel_data))
 
         query_bus.register("GetTwitchViewers", self.query_get_twitch_viewers)
+
+        query_bus.register("GetTwitchClipData", clip_response(self.get_clip_data))
+        query_bus.register("GetTwitchRandomClipData", response(self.get_random_clip_data))
 
     # -=-=- #
 
@@ -432,7 +448,7 @@ class TwitchService(BaseService[TwitchConfig]):
     async def get_user_id(self, channel:str, force:bool=False) -> str:
         user = await self.get_user(channel, force)
         if user: return user.id
-    
+
     async def get_stream_data(self, channel:str, force:bool=False) -> Stream:
         user_id = await self.get_user_id(channel, force)
         if user_id: return await first(self.twitch_user.get_streams(user_id=[user_id]))
@@ -442,9 +458,20 @@ class TwitchService(BaseService[TwitchConfig]):
         if user_id: return await first(self.twitch_user.get_videos(user_id=[user_id], video_type=VideoType.ARCHIVE))
 
     async def get_channel_data(self, channel:str, force:bool=False) -> ChannelInformation:
-        # self.twitch_user.get_channel_information()
         user_id = await self.get_user_id(channel, force)
         if user_id: return (await self.twitch_user.get_channel_information(broadcaster_id=[user_id]))[0]
+    
+    # -=-=- #
+    
+    async def get_random_clip_data(self, channel:str, force:bool=False) -> Clip|None:
+        user_id = await self.get_user_id(channel, force)
+        before = datetime.now() + timedelta(days=-90)
+        clips = [clip async for clip in self.twitch_user.get_clips(broadcaster_id=user_id, is_featured=True, first=100)]
+        if len(clips) > 0: return random.choice(clips)
+
+    async def get_clip_data(self, url:str, clip:str=None, **_) -> Clip|None:
+        clip_id = clip or url.split('?')[0].split('/')[-1]
+        return await first(self.twitch_user.get_clips(clip_id=[clip_id]))
 
     # -=-=- #
 

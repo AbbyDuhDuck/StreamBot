@@ -1,0 +1,108 @@
+<script>
+
+function addClipHTML(html) {
+    $container = $('#clip-container')
+    $container.append(html)
+
+    {# $container.animate({
+        scrollTop: $container.prop('scrollHeight')
+    }, 1000); #}
+}
+
+
+$(document).ready(() => { 
+    // Connect to the WebSocket server
+    const ws = new WebSocket("ws://127.0.0.1:13337/ws/clip");
+
+    ws.addEventListener("open", () => {
+        console.log("Connected to chat WebSocket");
+    });
+
+    // Listen for stop time updates from Python
+    ws.addEventListener("message", (event) => {
+        try {
+            const data = JSON.parse(event.data);
+
+            if (data.event === "send-clip") {
+                $.get("/widget/clip_player/clip_row/", data.message, (html) => {
+                    addClipHTML(html)
+                })
+            }
+            if (data.event === "update") {
+                console.log("Received update:", data.message);
+                if (data.message['counter-count'] !== undefined)
+                    $("#counter-count").html(data.message['counter-count']);
+            }
+        } catch (err) {
+            console.error("Failed to parse WS message:", err);
+        }
+    });
+
+    ws.addEventListener("close", () => {
+        console.log("WebSocket disconnected");
+    });
+
+    $('#player-play').on('click', () => {
+        {# ws.send(JSON.stringify({
+            event: 'increment',
+        })); #}
+    })
+    $('#player-stop').on('click', () => {
+        {# ws.send(JSON.stringify({
+            event: 'decrement',
+        })); #}
+    })
+
+    // -=-=- //
+    
+    const recent_users = []
+    $('#player-channel-input').keypress((e) => { 
+        // Enter key corresponds to number 13 
+        if (e.which !== 13) return;
+        // -=-=- //
+        const $input = $('#player-channel-input')
+        const input = $input.val()
+        $input.val('')
+        if (input == '') return 
+
+        ws.send(JSON.stringify({
+            event: 'send-random-clip',
+            data: {user:input}
+        }));
+    }) 
+});
+
+
+</script>
+
+<style>
+#player-channel-input {
+    text-align: center;
+}
+#clip-container {
+    gap: 6px;
+}
+</style>
+
+<div id="clip-player">
+    <div class="widget-page col">
+        <div class="row">
+            <h1>Videos:</h1>
+            <input id="player-channel-input" placeholder="User">
+        </div>
+        <div id="clip-container" class="col">
+        {% for clip in clip_list %}
+            <div class="clip, row">
+                <div class="col">
+                    <h2><span id="clip-title">{{clip.title}}</span></h2>
+                    <div class="row">
+                        <div><span id"clip-user">{{clip.broadcaster_name}}</span></div>
+                        <div class="small-text">clip by <span id="clip-creator">{{clip.creator_name}}</span></div>
+                    </div>
+                </div>
+                <div class="button-row"><button id="player-play" clip-id="{{clip.id}}">Play</button></div>
+            </div>
+        {% endfor %}
+        </div>
+    </div>
+</div>
