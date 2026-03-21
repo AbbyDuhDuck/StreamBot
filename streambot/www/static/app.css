@@ -15,21 +15,30 @@ body {
     /* flex-direction: column; */
 }
 
-
 .emote {
-    height: 1.6em;
+    height: 1em;              /* base size relative to text */
     width: auto;
     
     vertical-align: bottom;
+    
+    transform: scale(1.8);    /* 👈 makes emote bigger visually */
+    margin: 0px 5px;
+    
+    transition: transform 0.15s ease;
+    transform-origin: center bottom; /* grows upward */
 }
-/* 
-#stream-data {
-    color: white;
-    
-    margin: 6px;
-    margin-bottom: 0px;
-    
-    } */
+.emote:hover {
+    transform: scale(3);
+    z-index: 10;
+    position: relative;
+}
+.emote:focus {
+    transform: scale(6);
+    z-index: 11;
+    position: relative;
+    pointer-events: none;
+}
+
     
 #widget-container {
         

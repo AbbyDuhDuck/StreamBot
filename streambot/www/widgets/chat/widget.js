@@ -1,13 +1,17 @@
 
-const TWITCH_EMOTE = (emote) => `<img class="twitch-emote emote"
-srcset="
+/*srcset="
 //static-cdn.jtvnw.net/emoticons/v2/${emote}/default/dark/1.0 1x, 
 //static-cdn.jtvnw.net/emoticons/v2/${emote}/default/dark/2.0 2x, 
-//static-cdn.jtvnw.net/emoticons/v2/${emote}/default/dark/4.0 4x, 
-"
+//static-cdn.jtvnw.net/emoticons/v2/${emote}/default/dark/4.0 4x
+"*/
+const TWITCH_EMOTE = (emote, name="") => `<img class="twitch-emote emote"
+src="//static-cdn.jtvnw.net/emoticons/v2/${emote}/default/dark/4.0"
+alt="${name}"
+tabindex="0"
 loading="lazy" decoding="async">`;
-const YOUTUBE_EMOTE = (emote) => `<img class="youtube-emote emote"
-src="${emote}"
+const YOUTUBE_EMOTE = (emote, name="") => `<img class="youtube-emote emote"
+src="${emote}" alt="${name}"
+tabindex="0"
 loading="lazy" decoding="async">`;
 
 
@@ -20,11 +24,12 @@ function parseEmotes(data) {
     if (data.platform == 'youtube') emote_fmt = YOUTUBE_EMOTE;
     // -=-=- //
     for (const emote in data.emotes) {
-        const html = emote_fmt(data.emotes[emote])
+        const html = emote_fmt(data.emotes[emote], emote)
         msg = msg.split(emote).join(html);
     }
     return msg
 }
+
 
 function addMessageHTML(html) {
     // console.log("Adding message HTML:", html)

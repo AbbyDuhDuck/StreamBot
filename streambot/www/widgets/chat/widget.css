@@ -14,7 +14,7 @@
     border: 2px solid #111;
     border-radius: 6px;
     margin: 6px;
-    padding: 0px;
+    padding: 3px 0px;
     
     color: white;
     
@@ -30,39 +30,42 @@
 }
 
 .message {
-    /* width: 100%; */
-    /* margin: 3px 0px; */
-
-    padding: 3px 6px;
-    
-    word-wrap: normal;
+    display: block;
+    padding: 2px 6px;
+    line-height: 1.4em;
+}
+.message .fa,
+.message .badges img {
+    vertical-align: bottom;
 }
 .message:hover {
     background-color: #444;
 }
 
-.message .user {
-    display: inline-flex;
-    gap: 3px;
-}
-.message .user .badges {
-    display: inline-flex;
-    gap: 3px;
-}
-.message .username::after {
-    /* display: inline-block; */
-    content: " //";
+.message .user,
+.message .badges,
+.message .username,
+.message .content {
+    display: inline;
+    vertical-align: bottom;
 }
 
-.message .username[has-ads="false"]::after {
-    /* display: inline-block; */
-    content: " ///";
+.message .user {
+    white-space: nowrap;
 }
 
 .message .content {
-    display: inline-block;
-    
+    white-space: normal; /* allow wrapping */
 }
+
+.message .username::after {
+    content: "\00A0//";
+}
+
+.message .username[has-ads="false"]::after {
+    content: "\00A0///";
+}
+
 
 .message .fa-twitch {
     color: #9146FF;
@@ -72,6 +75,9 @@
 }
     
 .notification {
+    flex-shrink: 0;
+    word-wrap: normal;
+
     background-color: #2a2a2a;
     
     border-left: 3px solid #aaa;
@@ -80,7 +86,7 @@
     border-bottom: 0px;
     /* background-color: #555; */
     
-    padding: 3px;
+    padding: 4px;
     padding-left: 13px;
     
     min-height: 25px;
