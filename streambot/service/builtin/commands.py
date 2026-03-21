@@ -20,11 +20,10 @@ from dataclasses import dataclass
 import enum
 from typing import Any, Callable
 
-from .chat import ChatMessageData, ChatMessageOutData
+from .chat import ChatMessageData, ChatMessageOutData, ChatNotificationData, MessageLevel, Platform, UserType
 from .sound import PlayTTSData
 from .chat_twitch import SetGameData
 from .chat_youtube import SetYouTubeIDData
-from .webui.webui import DisplayOutData
 
 from .. import ConfigClass, configclass, BaseService, serviceclass
 from ...signals import EventBus, EventData, QueryBus, QueryData, Response
@@ -87,6 +86,14 @@ class CommandsService(BaseService[ConfigClass]):
         pass
 
     # -=-=- #
+    
+    async def message_out(message:str, user_type:UserType=UserType.BOT, platform:Platform=Platform.TWITCH):
+        await EventBus.get_instance().emit("ChatMessageOut", ChatMessageOutData(message, user_type=user_type, platform=platform))
+
+    async def display_out(message:str, level:MessageLevel=MessageLevel.INFO):
+        await EventBus.get_instance().emit("ChatNotification", ChatNotificationData(message, level))
+
+    # -=-=- #
 
     def has_required_level(self, user:str, level:CommandLevel) -> bool:
         # Placeholder implementation - replace with actual user level checking logic
@@ -144,8 +151,8 @@ class CommandsService(BaseService[ConfigClass]):
         commands_list = ", ".join(self.commands.keys())
         help_message = f"Available commands: {commands_list}"
         
-        await EventBus.get_instance().emit("DisplayOut", DisplayOutData(message=help_message))
-        await EventBus.get_instance().emit("MessageOut", ChatMessageOutData(message=help_message))
+        await self.message_out(help_message)
+        await self.display_out(help_message)
 
     async def command_tts(self, user:str, args:str):
         await EventBus.get_instance().emit("PlayTTS", PlayTTSData(message=args))
