@@ -1,11 +1,17 @@
 
-<div class="clip, row">
-    <div class="col">
+<div class="clip row" style="gap: 10px;">
+    <div class="col" style="flex: auto; justify-content: center;">
         <h2><span id="clip-title">{{title}}</span></h2>
         <div class="row">
             <div><span id"clip-user">{{broadcaster_name}}</span></div>
             <div class="small-text">clip by <span id="clip-creator">{{creator_name}}</span></div>
         </div>
     </div>
-    <div class="button-row"><button id="player-play" clip-id="{{id}}">Play</button></div>
+    <div class="col">
+        <div class="col"><button id="player-play" clip-id="{{id}}">Play</button></div>
+        <div class="row">
+            <button id="player-stay" class="col" clip-id="{{id}}">Stay</button>
+            <button id="player-clear" clip-id="{{id}}">Clear</button>
+        </div>
+    </div>
 </div>

@@ -1,0 +1,27 @@
+.carousel-target {
+    position: relative;
+    overflow: hidden;
+    /* width: 100%; */
+    /* min-height: 150px; /* fallback height so it doesn’t collapse initially */
+}
+
+.carousel-target > * {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+
+    opacity: 0;
+    transform: scale(0.98);
+    pointer-events: none;
+    z-index: 1;
+    transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+/* visible item */
+.carousel-target > *.active {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+    z-index: 5;
+}

@@ -1,3 +1,6 @@
+<script src="static/carousel.js" defer></script>
+<link rel="stylesheet" href="static/carousel.css">
+
 <script>
 
 function addClipHTML(html) {
@@ -79,28 +82,45 @@ $(document).ready(() => {
 #player-channel-input {
     text-align: center;
 }
+#player-play {
+    background-color: #339966;
+}
 #clip-container {
     gap: 6px;
+}
+.clip {
+    min-height: 60px;
+    gap: 8px;
+}
+#clip-user {
+    overflow: hidden;
 }
 </style>
 
 <div id="clip-player">
-    <div class="widget-page col">
+    <div class="widget-page col" style="gap: 6px;">
         <div class="row">
             <h1>Videos:</h1>
+            <div class="carousel" for="clip-container"></div>
             <input id="player-channel-input" placeholder="User">
         </div>
-        <div id="clip-container" class="col">
+        <div id="clip-container" class="">
         {% for clip in clip_list %}
-            <div class="clip, row">
-                <div class="col">
+            <div class="clip row" style="gap: 10px;">
+                <div class="col" style="flex: auto; justify-content: center; flex:3;">
                     <h2><span id="clip-title">{{clip.title}}</span></h2>
                     <div class="row">
                         <div><span id"clip-user">{{clip.broadcaster_name}}</span></div>
                         <div class="small-text">clip by <span id="clip-creator">{{clip.creator_name}}</span></div>
                     </div>
                 </div>
-                <div class="button-row"><button id="player-play" clip-id="{{clip.id}}">Play</button></div>
+                <div class="col">
+                    <div class="col"><button id="player-play" clip-id="{{clip.id}}">Play</button></div>
+                    <div class="row">
+                        <button id="player-stay" class="col" clip-id="{{clip.id}}">Stay</button>
+                        <button id="player-clear" clip-id="{{clip.id}}">Clear</button>
+                    </div>
+                </div>
             </div>
         {% endfor %}
         </div>
