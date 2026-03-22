@@ -55,10 +55,10 @@ $(document).ready(() => {
             }
 
             if (data.event === "play-clip") {
-                console.log(`Playing Clip: ${data.message.id}`)
+                console.log(`Playing Clip: ${data.message.id}`, data.message)
             }
             if (data.event === "stop-clip") {
-                console.log(`Stopping Clip: ${data.message.id}`)
+                console.log(`Stopping Clip: ${data.message.id}`, data.message)
             }
             
             if (data.event === "update") {

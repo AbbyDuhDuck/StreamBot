@@ -9,6 +9,7 @@ from typing import Any
 from streambot.service.builtin.chat_youtube import UpdateViewersYoutubeData
 from streambot.service.builtin.chat_twitch import TwitchChannelQueryData, TwitchEventData, TwitchClipQueryData, TwitchQueryResponse
 from streambot.service.builtin.sound import PlayTTSData
+from streambot.service.builtin.obs import GotoSceneData
 from streambot.service.builtin.webui.webui import WSMessageData, WSMessageOutData
 from streambot.service.builtin.webui.widgets import base
 from streambot.service.builtin.chat import ChatMessageData, ChatNotificationData, ChatMessageOutData, MessageLevel, Platform, UserType
@@ -18,6 +19,7 @@ from streambot.signals import EventBus, EventData, QueryBus, Response
 from twitchAPI.object.eventsub import ChannelRaidEvent, ChannelAdBreakBeginEvent
 from twitchAPI.twitch import Clip
 
+import re
 import asyncio
 from functools import wraps
 
@@ -46,6 +48,8 @@ class Widget(base.Widget):
 
     def register_events(self, event_bus: EventBus):
         self.event_bus = event_bus
+        self.register('TwitchRaidEvent', self.event_raid)
+        
         self.register("WSMessageClip", self.event_ws_message)
 
         self.register("ChatMessage", self.event_chat_message)
@@ -71,6 +75,11 @@ class Widget(base.Widget):
 
     # -=-=- #
 
+    async def event_raid(self, data:TwitchEventData[ChannelRaidEvent]):
+        user = data.data.event.from_broadcaster_user_login
+        await self.event_bus.emit("ClipPlayerSendRandomClip", ClipPlayerData(channel=user))
+
+
     async def event_ws_message(self, event:WSMessageData):
         print(f"Player Received WSMessage ({event.event}): {event.data}")
 
@@ -95,9 +104,12 @@ class Widget(base.Widget):
 
     # -=-=- #
 
-    async def play_clip(self, data:dict[str, Any]):
+    async def play_clip(self, data:dict[str, Any], change_scenes:bool=False):
         print('playing clip:', data.get('title', 'Title Not Found'))
+        # -=-=- #
+        if change_scenes: await self.event_bus.emit("OBSGotoScene", GotoSceneData('Clip Viewer'))
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="clip", event='play-clip', message=data))
+        # await self.event_bus.emit("OBSBackScene")
 
     async def stop_clip(self, id:str|None):
         if id is None: return
@@ -134,18 +146,33 @@ class Widget(base.Widget):
     def context(self):
         return {
             'clip_list': [*self.sent_clips.values()],
+            'width':  1280,
+            'height': 720,
         }
     
     # -=-=- Events -=-=- #
 
     async def event_chat_message(self, data:ChatMessageData):
         if data.platform is not Platform.TWITCH: return
-        # print(f"{data.user}// {data.message}")
-        clip_link = "https://www.twitch.tv/littlefaerii/clip/CautiousBeautifulHeronArsonNoSexy-RXerO7i80AwfYata"
-        clip_id = "CautiousBeautifulHeronArsonNoSexy-RXerO7i80AwfYata"
-        channel_id = "littlefaerii"
-        # await self.event_bus.emit("ClipPlayerSendClip", ClipPlayerData(url=clip_link, clip=clip_id))
-        # await self.event_bus.emit("ClipPlayerSendRandomClip", ClipPlayerData(channel=channel_id))
+        # -=-=- #
+        CLIP_REGEX = re.compile(
+            r"(https?://(?:www\.)?twitch\.tv/[^/\s]+/clip/([A-Za-z0-9_-]+))"
+            r"|"
+            r"(https?://clips\.twitch\.tv/([A-Za-z0-9_-]+))"
+        )
+        matches = CLIP_REGEX.findall(data.message)
+        url = None
+        slug = None
+        for match in matches:
+            # match groups:
+            # (full1, slug1, full2, slug2)
+            url = match[0] or match[2]
+            slug = match[1] or match[3]
+        # -=-=- #
+        if url or slug:
+            print(f"[Clip Detect] Found clip: {url} ({slug})")
+            await self.event_bus.emit("ClipPlayerSendClip", ClipPlayerData(url=url, clip=slug))
+            # await self.event_bus.emit("ClipPlayerSendRandomClip", ClipPlayerData(channel=channel_id))
 
     async def event_random_send_clip(self, data:ClipPlayerData):
         clip = await self.get_random_clip_data(data.channel)
@@ -163,7 +190,7 @@ class Widget(base.Widget):
         clip = await self.get_clip_data(data.url, data.clip)
         if clip is None: return await self.out(f'Cannot find clip: {data.url}', MessageLevel.WARNING)
         # -=-=- #
-        await self.play_clip(clip)
+        await self.play_clip(clip, not data.stay)
 
     async def event_stop_clip(self, data:ClipPlayerData):
         clip_id = data.clip or data.url.split('?')[0].split('/')[-1]

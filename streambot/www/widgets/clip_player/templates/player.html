@@ -19,34 +19,38 @@
     text-shadow: 2px 2px 4px #000000;
   }
 
-  .container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-    width: 100%;
-  }
-
-  .counter {
-    font-size: 200px;   /* Adjust for widget size */
-    font-weight: bold;
-    text-shadow: 10px 10px 20px #000000;
+  #clip-container {
+    {# display: flex; #}
+    {# justify-content: center; #}
+    {# align-items: center; #}
+    width: {{width}}px;
+    height: {{height}}px;
   }
 </style>
 
 </head>
 <body>
 
-<iframe
-    src="https://clips.twitch.tv/embed?clip=CautiousBeautifulHeronArsonNoSexy-RXerO7i80AwfYata&parent=127.0.0.1&autoplay=true&muted=false&controls=false"
-    width="640"
-    height="360"
-    frameborder="0"
-    id="twitch-iframe">
-</iframe>
-
+<div id="clip-container"></div>
 
 <script>
+
+function estimateLoadOffset(duration) {
+    // base time for iframe + player boot
+    const base = 700; // ms
+
+    // scaling factor (clips buffer more when longer)
+    const scale = Math.sqrt(duration) * 120;
+
+    // small network safety buffer
+    const jitter = 300;
+
+    // final
+    const offset = base + scale + jitter;
+
+    // clamp to sane range
+    return Math.max(800, Math.min(offset, 3000));
+}
 
 function getClipData(url) {
     const parts = url.split("/");
@@ -59,19 +63,56 @@ function getClipData(url) {
     };
 }
 
-function play_clip(link) {
-    window.addEventListener("message", (event) => {
-    // IMPORTANT: always verify origin
-    if (!event.origin.includes("twitch")) return;
-    //if (!event.origin.includes("twitch.tv")) return;
+function play_clip(clip, onDone) {
+    const params = "&parent=127.0.0.1&autoplay=true&muted=false&controls=false";
+    const url = clip.embed_url + params;
 
-    console.log("Twitch message:", event.data);
-});
-}
+    const $container = $('#clip-container');
+
+    // create iframe properly
+    const $iframe = $('<iframe>', {
+        src: url,
+        allowfullscreen: true,
+        frameborder: 0,
+        scrolling: "no",
+        width: "{{width}}px",
+        height: "{{height}}px"
+    });
+    $iframe.hide();
+
+    // replace container content
+    $container.empty().append($iframe);
+
+    // wait for iframe to load
+    $iframe.on('load', () => {
+        console.log("[Clip] iframe loaded");
+
+        // use duration from backend
+        const duration = 1000 * (clip.duration || 10);
+        const load_offset = estimateLoadOffset(duration);
+
+        console.log("[Clip] duration:", duration);
+        console.log("[Clip] plus offset:", duration+load_offset);
+
+        // trigger callback after offset
+        setTimeout(() => {
+            console.log("[Clip] started");
+            $iframe.show();
+        }, load_offset);
+
+        // trigger callback after duration
+        setTimeout(() => {
+            console.log("[Clip] finished");
+            $container.empty()
+
+            if (onDone) onDone();
+        }, duration+load_offset);
+    });
+} 
 
 $(document).ready(() => { 
     // Connect to the WebSocket server
-    const ws = new WebSocket("ws://127.0.0.1:13337/ws/counter");
+    const ws = new WebSocket("ws://127.0.0.1:13337/ws/clip");
 
     ws.addEventListener("open", () => {
         console.log("Connected to chat WebSocket");
@@ -82,8 +123,15 @@ $(document).ready(() => {
         try {
             const data = JSON.parse(event.data);
 
-            if (data.event === "update") {
+            if (data.event === "play-clip") {
+                console.log(`Playing Clip: ${data.message.id}`, data.message)
+                play_clip(data.message)
             }
+            if (data.event === "stop-clip") {
+                console.log(`Stopping Clip: ${data.message.id}`, data.message)
+                $('#clip-container').empty();
+            }
+            
         } catch (err) {
             console.error("Failed to parse WS message:", err);
         }

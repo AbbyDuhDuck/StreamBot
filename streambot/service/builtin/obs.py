@@ -72,6 +72,8 @@ class OBSService(BaseService[OBSConfig]):
     _connected = False
     client:obs.ReqClient = None
 
+    scene_queue:list[str] = []
+
     async def start(self):
         print(f"Starting OBS at {self.config.host}:{self.config.port} -- pass:{censor_password(self.config.password)}")
         self.connect()
@@ -160,8 +162,14 @@ class OBSService(BaseService[OBSConfig]):
     # -=-=- #
 
     def goto_scene(self, name:str):
-        if not self.check_connection(): return None
+        if not self.check_connection(): return
+        self.scene_queue.append(self.client.get_current_program_scene())
         self.client.set_current_program_scene(name)
+
+    def back_scene(self):
+        if not self.check_connection(): return
+        if len(self.scene_queue) == 0: return
+        self.scene_queue.append(self.scene_queue.pop())
 
     # -=-=- Events -=-=- #
 
