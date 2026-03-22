@@ -27,6 +27,7 @@ class ClipPlayerData:
     clip:str|None = None
     url:str|None = None
     channel:str|None = None
+    stay:bool = False
 
 class Widget(base.Widget):
     name = "clip_player"
@@ -50,6 +51,9 @@ class Widget(base.Widget):
         self.register("ChatMessage", self.event_chat_message)
         self.register("ClipPlayerSendClip", self.event_send_clip)
         self.register("ClipPlayerSendRandomClip", self.event_random_send_clip)
+        
+        self.register("ClipPlayerPlayClip", self.event_play_clip)
+        self.register("ClipPlayerStopClip", self.event_stop_clip)
 
     def register_queries(self, query_bus):
         self.query_bus = query_bus
@@ -72,13 +76,33 @@ class Widget(base.Widget):
 
         if event.event == 'send-random-clip':
             await self.event_bus.emit("ClipPlayerSendRandomClip", ClipPlayerData(channel=event.data.get('user')))
+        if event.event == 'play-pressed':
+            await self.event_bus.emit("ClipPlayerPlayClip", ClipPlayerData(clip=event.data.get('id'), stay=event.data.get('stay', False)))
+        if event.event == 'clear-clip':
+            await self.clear_clip(event.data.get('id'))
 
     # -=-=- #
     
     async def send_clip(self, data:dict[str, Any]):
-        print('sending clip:', data)
+        print('playing clip:', data.get('title', 'Title Not Found'))
         self.sent_clips[data.get('id', None)] = data
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="clip", event='send-clip', message=data))
+
+    async def clear_clip(self, id:str|None):
+        if id is None: return
+        if id in self.sent_clips: del(self.sent_clips[id])
+        await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="clip", event='clear-clip', message={'id':id}))
+
+    # -=-=- #
+
+    async def play_clip(self, data:dict[str, Any]):
+        print('playing clip:', data.get('title', 'Title Not Found'))
+        await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="clip", event='play-clip', message=data))
+
+    async def stop_clip(self, id:str|None):
+        if id is None: return
+        print('stopping clip:', id)
+        await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="clip", event='stop-clip', message={'id':id}))
 
     # -=-=- #
     
@@ -116,7 +140,7 @@ class Widget(base.Widget):
 
     async def event_chat_message(self, data:ChatMessageData):
         if data.platform is not Platform.TWITCH: return
-        print(f"{data.user}// {data.message}")
+        # print(f"{data.user}// {data.message}")
         clip_link = "https://www.twitch.tv/littlefaerii/clip/CautiousBeautifulHeronArsonNoSexy-RXerO7i80AwfYata"
         clip_id = "CautiousBeautifulHeronArsonNoSexy-RXerO7i80AwfYata"
         channel_id = "littlefaerii"
@@ -125,15 +149,22 @@ class Widget(base.Widget):
 
     async def event_random_send_clip(self, data:ClipPlayerData):
         clip = await self.get_random_clip_data(data.channel)
-        print(clip)
         if clip is None: return await self.out(f'Cannot find clip for channel: {data.channel}', MessageLevel.WARNING)
         # -=-=- #
         await self.send_clip(clip)
 
     async def event_send_clip(self, data:ClipPlayerData):
-        clip = await self.get_clip_data(data.url)
-        print(clip)
+        clip = await self.get_clip_data(data.url, data.clip)
         if clip is None: return await self.out(f'Cannot find clip: {data.url}', MessageLevel.WARNING)
         # -=-=- #
         await self.send_clip(clip)
 
+    async def event_play_clip(self, data:ClipPlayerData):
+        clip = await self.get_clip_data(data.url, data.clip)
+        if clip is None: return await self.out(f'Cannot find clip: {data.url}', MessageLevel.WARNING)
+        # -=-=- #
+        await self.play_clip(clip)
+
+    async def event_stop_clip(self, data:ClipPlayerData):
+        clip_id = data.clip or data.url.split('?')[0].split('/')[-1]
+        await self.stop_clip(clip_id)

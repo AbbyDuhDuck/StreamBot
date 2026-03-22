@@ -3,15 +3,31 @@
 
 <script>
 
-function addClipHTML(html) {
-    $container = $('#clip-container')
-    $container.append(html)
-
-    {# $container.animate({
-        scrollTop: $container.prop('scrollHeight')
-    }, 1000); #}
+function playClip(ws, id, stay=false) {
+    ws.send(JSON.stringify({
+        event: 'play-pressed',
+        data: {id: id, stay:stay}
+    }));
+}
+function clearClip(ws, id) {
+    ws.send(JSON.stringify({
+        event: 'clear-clip',
+        data: {id: id}
+    }));
 }
 
+function onClickFunction(ws) {
+    return function () {
+        const el = $(this);
+        const action = el.attr('class').split('-')[1]; // play/stay/clear
+        const clipId = el.attr('clip-id');
+
+        console.log(action, clipId);
+        if (action == 'play') playClip(ws, clipId);
+        if (action == 'stay') playClip(ws, clipId, true);
+        if (action == 'clear') clearClip(ws, clipId);
+    }
+}
 
 $(document).ready(() => { 
     // Connect to the WebSocket server
@@ -28,9 +44,23 @@ $(document).ready(() => {
 
             if (data.event === "send-clip") {
                 $.get("/widget/clip_player/clip_row/", data.message, (html) => {
-                    addClipHTML(html)
+                    {# $html = $(html) #}
+                    {# $html.on('click', '[class^="player-"]', onClickFunction(ws)); #}
+                    $container = $('#clip-container')
+                    $container.append(html)
                 })
             }
+            if (data.event === "clear-clip" && data.message.id) {
+                $(`#${data.message.id}`).remove()
+            }
+
+            if (data.event === "play-clip") {
+                console.log(`Playing Clip: ${data.message.id}`)
+            }
+            if (data.event === "stop-clip") {
+                console.log(`Stopping Clip: ${data.message.id}`)
+            }
+            
             if (data.event === "update") {
                 console.log("Received update:", data.message);
                 if (data.message['counter-count'] !== undefined)
@@ -45,16 +75,7 @@ $(document).ready(() => {
         console.log("WebSocket disconnected");
     });
 
-    $('#player-play').on('click', () => {
-        {# ws.send(JSON.stringify({
-            event: 'increment',
-        })); #}
-    })
-    $('#player-stop').on('click', () => {
-        {# ws.send(JSON.stringify({
-            event: 'decrement',
-        })); #}
-    })
+    $(document).on('click', '[class^="player-"]', onClickFunction(ws));
 
     // -=-=- //
     
@@ -82,14 +103,14 @@ $(document).ready(() => {
 #player-channel-input {
     text-align: center;
 }
-#player-play {
-    background-color: #339966;
+button.player-play {
+    background: #339966;
 }
 #clip-container {
     gap: 6px;
 }
 .clip {
-    min-height: 60px;
+    {# min-height: 60px; #}
     gap: 8px;
 }
 #clip-user {
@@ -106,7 +127,7 @@ $(document).ready(() => {
         </div>
         <div id="clip-container" class="">
         {% for clip in clip_list %}
-            <div class="clip row" style="gap: 10px;">
+            <div class="clip row" style="gap: 10px;" id="{{clip.id}}">
                 <div class="col" style="flex: auto; justify-content: center; flex:3;">
                     <h2><span id="clip-title">{{clip.title}}</span></h2>
                     <div class="row">
@@ -115,10 +136,10 @@ $(document).ready(() => {
                     </div>
                 </div>
                 <div class="col">
-                    <div class="col"><button id="player-play" clip-id="{{clip.id}}">Play</button></div>
+                    <div class="col"><button class="player-play" clip-id="{{clip.id}}">Play ({{clip.duration | int}}s)</button></div>
                     <div class="row">
-                        <button id="player-stay" class="col" clip-id="{{clip.id}}">Stay</button>
-                        <button id="player-clear" clip-id="{{clip.id}}">Clear</button>
+                        <button class="player-stay" class="col" clip-id="{{clip.id}}">Stay</button>
+                        <button class="player-clear" clip-id="{{clip.id}}">Clear</button>
                     </div>
                 </div>
             </div>

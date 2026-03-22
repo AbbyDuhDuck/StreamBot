@@ -273,7 +273,7 @@ class WebUIService(BaseService[WebUIConfig]):
         event = msg.get("event")
         data = msg.get("data", {})
 
-        print(f"WebUI received messagefor widget {path}: {event}, data: {data}")
+        # print(f"WebUI received message for widget {path}: {event}, data: {data}")
 
         await self.event_bus.emit("WSMessage", WSMessageData(event=event, data=data))
         await self.event_bus.emit(f"WSMessage{path.title()}", WSMessageData(event=event, data=data))
