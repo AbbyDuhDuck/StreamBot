@@ -21,7 +21,7 @@ from twitchAPI.twitch import Clip
 
 import re
 import asyncio
-from functools import wraps
+from streambot.core.decorators import queued, Queued
 
 
 @dataclass
@@ -87,13 +87,15 @@ class Widget(base.Widget):
             await self.event_bus.emit("ClipPlayerSendRandomClip", ClipPlayerData(channel=event.data.get('user')))
         if event.event == 'play-pressed':
             await self.event_bus.emit("ClipPlayerPlayClip", ClipPlayerData(clip=event.data.get('id'), stay=event.data.get('stay', False)))
+        if event.event == 'done-clip':
+            await self.done_clip(event.data.get('id'))
         if event.event == 'clear-clip':
             await self.clear_clip(event.data.get('id'))
 
     # -=-=- #
     
     async def send_clip(self, data:dict[str, Any]):
-        print('playing clip:', data.get('title', 'Title Not Found'))
+        print('sending clip:', data.get('title', 'Title Not Found'))
         self.sent_clips[data.get('id', None)] = data
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="clip", event='send-clip', message=data))
 
@@ -104,16 +106,29 @@ class Widget(base.Widget):
 
     # -=-=- #
 
+    @queued
     async def play_clip(self, data:dict[str, Any], change_scenes:bool=False):
         print('playing clip:', data.get('title', 'Title Not Found'))
         # -=-=- #
         if change_scenes: await self.event_bus.emit("OBSGotoScene", GotoSceneData('Clip Viewer'))
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="clip", event='play-clip', message=data))
-        # await self.event_bus.emit("OBSBackScene")
+        await self.play_clip.wait(data.get('id'), timeout=data.get('duration', 60)+10)
+        # -=-=- #
+        await asyncio.sleep(1)
+        if change_scenes and self.play_clip.is_last():
+            await self.event_bus.emit("OBSBackScene")
+        
+
+    async def done_clip(self, id:str|None):
+        if id is None: return
+        print('done clip:', id)
+        self.play_clip.done(id)
+
 
     async def stop_clip(self, id:str|None):
         if id is None: return
         print('stopping clip:', id)
+        self.play_clip.cancel(id, cancel_current=True)
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="clip", event='stop-clip', message={'id':id}))
 
     # -=-=- #

@@ -117,6 +117,7 @@ class OBSService(BaseService[OBSConfig]):
         event_bus.register('OBSDisableItem', self.event_set_item_disabled)
 
         event_bus.register('OBSGotoScene', self.event_goto_scene)
+        event_bus.register('OBSBackScene', self.event_back_scene)
         
     def __register_queries__(self, query_bus:QueryBus):
         query_bus.register(
@@ -163,13 +164,15 @@ class OBSService(BaseService[OBSConfig]):
 
     def goto_scene(self, name:str):
         if not self.check_connection(): return
-        self.scene_queue.append(self.client.get_current_program_scene())
+        scene = self.client.get_current_program_scene()
+        if scene is not None and scene.scene_name != name:
+            self.scene_queue.append(scene.scene_name)
         self.client.set_current_program_scene(name)
 
     def back_scene(self):
         if not self.check_connection(): return
         if len(self.scene_queue) == 0: return
-        self.scene_queue.append(self.scene_queue.pop())
+        self.client.set_current_program_scene(self.scene_queue.pop())
 
     # -=-=- Events -=-=- #
 
@@ -185,6 +188,9 @@ class OBSService(BaseService[OBSConfig]):
     
     async def event_goto_scene(self, data:"GotoSceneData"):
         self.goto_scene(data.scene)
+
+    async def event_back_scene(self, _):
+        self.back_scene()
 
 
 @dataclass

@@ -125,7 +125,13 @@ $(document).ready(() => {
 
             if (data.event === "play-clip") {
                 console.log(`Playing Clip: ${data.message.id}`, data.message)
-                play_clip(data.message)
+                play_clip(data.message, () => {
+                    // on done
+                    ws.send(JSON.stringify({
+                        event: 'done-clip',
+                        data: {id:data.message.id}
+                    }));
+                })
             }
             if (data.event === "stop-clip") {
                 console.log(`Stopping Clip: ${data.message.id}`, data.message)
