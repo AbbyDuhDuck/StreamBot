@@ -31,18 +31,21 @@ import asyncio
 import random
 
 from .chat_twitch import TwitchEventData
+from .sound import PlayTTSData
 from twitchAPI.object.eventsub import ChannelRaidEvent
 
 from streambot.core.decorators import debounce
 
 # -=-=- Functions & Classes -=-=- #
 
+USER_DEBOUNCE_SECONDS = 10
 
 # -=-=- Config Class -=-=- #
 
 @configclass
 class UsersConfig(ConfigClass):
     raid_cooldown:float = 60
+    raid_minimum:int = 10
 
     # -=-=- #
     
@@ -110,12 +113,13 @@ class UsersService(BaseService[UsersConfig]):
     greetings:dict[str, list[str]] = {}
     lurk_messages:dict[str, list[str]] = {}
 
-    _ignored_users = ["abbyduhduck", 'KofiStreamBot', 'nightbot', 'StreamElements', 'blerp']
+    _ignored_users = ["abbyduhduck", 'kofistreambot', 'nightbot', 'streamelements', 'blerp', 'artamisbot']
 
     greeting_queue:list[str] = []
     greeted_users:list[str] = []
     on_raid_cooldown:bool = False
     raiders:list[str] = []
+    
 
     async def start(self):
         # print(f"Starting AI Service")
@@ -127,13 +131,13 @@ class UsersService(BaseService[UsersConfig]):
     
     # -=-=- #
 
-    async def say(message:str):
-        await EventBus.get_instance().emit('PlayTTS', MessageData(message))
+    async def say(self, message:str):
+        await EventBus.get_instance().emit('PlayTTS', PlayTTSData(message))
 
-    async def msg(message:str, user_type:UserType=UserType.BOT, platform:Platform=Platform.TWITCH):
+    async def msg(self, message:str, user_type:UserType=UserType.BOT, platform:Platform=Platform.TWITCH):
         await EventBus.get_instance().emit("ChatMessageOut", ChatMessageOutData(message, user_type=user_type, platform=platform))
 
-    async def out(message:str, level:MessageLevel=MessageLevel.INFO):
+    async def out(self, message:str, level:MessageLevel=MessageLevel.INFO):
         await EventBus.get_instance().emit("ChatNotification", ChatNotificationData(message, level))
 
     # -=-=- #
@@ -176,10 +180,10 @@ class UsersService(BaseService[UsersConfig]):
         
     # -=-=- #
 
-    @debounce(10)
+    @debounce(USER_DEBOUNCE_SECONDS)
     async def greet_users(self):
-        users = self.user_queue
-        self.user_queue = []
+        users = self.greeting_queue
+        self.greeting_queue = []
 
         if self.can_greet(*users):
             users = self.get_valid_users(*users)
@@ -187,21 +191,23 @@ class UsersService(BaseService[UsersConfig]):
             # -=-=- #
             await self.out(f"Greeting: {self.get_names_string(*users)}")
             for msg in self.get_greetings(*users):
+                print(f'greeting: {msg}')
                 await self.say(msg)
             self.greeted_users.extend(users)
 
     # -=-=- #
 
     def is_custom_user(self, user:str) -> bool:
-        return user in self.greetings
+        return user.lower() in self.greetings
     
     def is_returning_user(self, user:str) -> bool:
         return False
 
     
     def can_greet_user(self, user:str) -> bool:
+        user = user.strip().lower()
         return True\
-            and user.strip() != ''\
+            and user != ''\
             and user not in self.greeted_users\
             and user not in self._ignored_users
     
@@ -303,6 +309,7 @@ class UsersService(BaseService[UsersConfig]):
         if not self.can_greet_user(data.user): return
         if data.platform is not Platform.TWITCH: return
         if self.on_raid_cooldown and data.user.lower() not in self.raiders: return
+        print(data.user)
         # -=-=- #
         self.greeting_queue.append(data.user)
         await self.greet_users()
@@ -312,6 +319,9 @@ class UsersService(BaseService[UsersConfig]):
         await self.say(greeting)
 
     async def event_raid(self, data:TwitchEventData[ChannelRaidEvent]):
+        # TODO - add raided multiple time cuttoff too
+        if data.data.event.viewers < self.config.raid_minimum: return
+        # -=-=- #
         self.on_raid_cooldown = True
         user = data.data.event.from_broadcaster_user_login
         if user not in self.raiders: self.raiders.append(user)

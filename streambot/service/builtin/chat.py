@@ -124,6 +124,7 @@ class ChatMessageData(EventData):
     # message
     message:str
     user:str
+    reply_user:str|None = None
     timestamp:int|None = None
     platform:Platform = Platform.TWITCH
     shared_chat:bool = False
@@ -195,6 +196,7 @@ class ChatService(BaseService[ChatConfig]):
         await self.event_bus.emit("ChatMessage", ChatMessageData(
             message=data.message,
             user=data.user,
+            reply_user=data.reply_user,
             timestamp=data.timestamp,
             platform=Platform.TWITCH,
             has_broadcaster=data.has_broadcaster,

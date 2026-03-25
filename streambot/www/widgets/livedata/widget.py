@@ -40,6 +40,7 @@ class Widget(base.Widget):
     twitch_raid_viewers:int = 0
 
     twitch_in_ads:bool = False
+    twitch_ad_dur:int = 0
 
     @property
     def twitch_avg_viewers(self):
@@ -51,8 +52,8 @@ class Widget(base.Widget):
 
         self.register("TwitchRaidEvent", self.on_twitch_raid_event)
 
-        self.register("TwitchAdStartEvent", self.on_twitch_ads_start)
-        self.register("TwitchAdStopEvent", self.on_twitch_ads_stop)
+        self.register("TwitchAdStartEvent", self.on_twitch_ad_start)
+        self.register("TwitchAdStopEvent", self.on_twitch_ad_stop)
 
         self.register("ChatStatusChangeEvent", self.on_status_change)
 
@@ -101,6 +102,7 @@ class Widget(base.Widget):
     async def update_in_ads(self):
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="livedata", event='update', message={
             'twitch-in-ads': self.twitch_in_ads,
+            'twitch-ad-dur': self.twitch_ad_dur,
         }))
         
     async def update_raids(self):
@@ -145,11 +147,12 @@ class Widget(base.Widget):
         self.twitch_raid_viewers += data.data.event.viewers
         await self.update_raids()
 
-    async def on_twitch_ads_start(self, data:TwitchEventData[ChannelAdBreakBeginEvent]):
+    async def on_twitch_ad_start(self, data:TwitchEventData[ChannelAdBreakBeginEvent]):
         self.twitch_in_ads = True
+        self.twitch_ad_dur = data.data.event.duration_seconds
         await self.update_in_ads()
 
-    async def on_twitch_ads_stop(self, data:TwitchEventData[ChannelAdBreakBeginEvent]):
+    async def on_twitch_ad_stop(self, data:TwitchEventData[ChannelAdBreakBeginEvent]):
         self.twitch_in_ads = False
         await self.update_in_ads()
 

@@ -134,6 +134,7 @@ class TwitchChatMessageData(EventData):
     # message
     message:str
     user:str
+    reply_user:str|None = None
     timestamp:int|None = None
     platform:Platform = Platform.TWITCH
     shared_chat:bool = False
@@ -374,6 +375,7 @@ class TwitchService(BaseService[TwitchConfig]):
         await self.event_bus.emit("TwitchChatMessage", TwitchChatMessageData(
             message=message.text,
             user=message.user.display_name,
+            reply_user=message.reply_parent_display_name,
             timestamp=message.sent_timestamp,
             platform=Platform.TWITCH,
             # shared_chat=False,
@@ -400,7 +402,7 @@ class TwitchService(BaseService[TwitchConfig]):
         self.event_but = event_bus
 
         event_bus.register("TwitchRedeemEvent", self.event_on_redeem)
-        event_bus.register("TwitchAdsStartEvent", self.event_on_ads_start)
+        event_bus.register("TwitchAdStartEvent", self.event_on_ad_start)
         event_bus.register("ChatMessageOut", self.event_chat_message_out)
 
         event_bus.register("TwitchShoutoutUser", self.event_shoutout_user)
@@ -572,7 +574,7 @@ class TwitchService(BaseService[TwitchConfig]):
 
     # -=-=- #
 
-    async def event_on_ads_start(self, data:TwitchEventData[ChannelAdBreakBeginEvent]):
+    async def event_on_ad_start(self, data:TwitchEventData[ChannelAdBreakBeginEvent]):
         # time = data.data.event.started_at
         # dur = data.data.event.duration_seconds
         await asyncio.sleep(data.data.event.duration_seconds)
