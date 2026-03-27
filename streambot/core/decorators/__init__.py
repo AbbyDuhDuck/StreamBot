@@ -18,5 +18,5 @@ TODO
 
 # -=-=- Imports & Globals -=-=- #
 
-from .debounce import debounce
+from .debounce import debounce, throttle
 from .queued import queued, Queued

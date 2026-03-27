@@ -11,7 +11,7 @@ from streambot.service.builtin.webui.widgets import base
 from streambot.service.builtin.chat import ChatMessageData, ChatNotificationData, ChatMessageOutData, Platform, LiveState, ChatStatusChangeData
 from streambot.service.builtin.commands import parse_command, ChatCommandData
 from streambot.signals import EventBus, EventData, QueryBus, Response
-from streambot.core.decorators import debounce
+from streambot.core.decorators import throttle
 
 from twitchAPI.object.eventsub import ChannelRaidEvent, ChannelAdBreakBeginEvent
 
@@ -63,7 +63,7 @@ class Widget(base.Widget):
 
     # -=-=- #
 
-    @debounce(3)
+    @throttle(3)
     async def update_all(self):
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="livedata", event='update', message={
             'twitch-viewers': self.twitch_viewers,
@@ -74,7 +74,7 @@ class Widget(base.Widget):
             'youtube-live-state': self.youtube_live_state.name.lower(),
         }))
 
-    @debounce(3)
+    @throttle(3)
     async def update_status_change(self):
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="livedata", event='update', message={
             'twitch-viewers': self.twitch_viewers,
@@ -85,14 +85,14 @@ class Widget(base.Widget):
 
     # -=-=- #
 
-    @debounce(3)
+    @throttle(3)
     async def update_viewers(self):
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="livedata", event='update', message={
             'twitch-viewers': self.twitch_viewers,
             'youtube-viewers': self.youtube_viewers,
         }))
 
-    @debounce(3)
+    @throttle(3)
     async def update_live_state(self):
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="livedata", event='update', message={
             'twitch-live-state': self.twitch_live_state.name.lower(),

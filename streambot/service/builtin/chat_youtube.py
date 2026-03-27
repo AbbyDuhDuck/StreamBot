@@ -37,7 +37,7 @@ from typing import Any, Callable
 from .. import ConfigClass, configclass, BaseService, serviceclass
 from ...signals import EventBus, EventData, QueryBus, QueryData, Response
 import asyncio
-from streambot.core.decorators import debounce
+from streambot.core.decorators import throttle
 
 from .chat import ChatMessageOutData, Platform, LiveState, ChatStatusChangeData
 from .tick import OnTickData
@@ -238,7 +238,7 @@ class YouTubeService(BaseService[YouTubeConfig]):
 
     # -=-=- #
 
-    @debounce(10)
+    @throttle(10)
     async def poll_data(self):
         data = await get_youtube_data(self.config.video_id)
         # -=-=- #

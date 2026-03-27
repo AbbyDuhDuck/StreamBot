@@ -66,7 +66,7 @@ from typing import Generic, TypeVar
 
 from .chat import ChatMessageOutData, Platform
 
-from streambot.core.decorators import debounce
+from streambot.core.decorators import throttle
 
 # from . import ChatService, ChatSettings
 
@@ -477,7 +477,7 @@ class TwitchService(BaseService[TwitchConfig]):
 
     # -=-=- #
 
-    @debounce(10)
+    @throttle(10)
     async def poll_data(self):
         stream = await self.get_stream_data(self.config.account_user)
         if stream is None:
