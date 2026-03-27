@@ -1,4 +1,25 @@
 <script>
+let adTimerInterval = null;
+function startAdTimer(dur) {
+    if (adTimerInterval) {
+        clearInterval(adTimerInterval);
+    }
+    let remaining = dur;
+    const update = () => {
+        if (remaining > 0) {
+            $("#twitch-in-ads").html(`In Ads (${remaining})`);
+            remaining--;
+        } else {
+            clearInterval(adTimerInterval);
+            adTimerInterval = null;
+            $("#twitch-in-ads").html(`Done!`);
+        }
+    };
+    update();
+    adTimerInterval = setInterval(update, 1000);
+}
+
+
 $(document).ready(() => { 
     // Connect to the WebSocket server
     const ws = new WebSocket("ws://127.0.0.1:13337/ws/livedata");
@@ -25,6 +46,8 @@ $(document).ready(() => {
                 
                 if (data.message['twitch-in-ads'] !== undefined)
                     $("#twitch-in-ads").prop('hidden', !data.message['twitch-in-ads']);
+                if (data.message['twitch-ad-dur'] !== undefined)
+                    startAdTimer(data.message['twitch-ad-dur'])
 
                 if (data.message['twitch-live-state'] !== undefined) {
                     $("#twitch-live-state").attr("class", function(i, c) {
