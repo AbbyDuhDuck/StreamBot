@@ -38,7 +38,7 @@ from streambot.core.decorators import debounce
 
 # -=-=- Functions & Classes -=-=- #
 
-USER_DEBOUNCE_SECONDS = 10
+USER_DEBOUNCE_SECONDS = 15
 
 # -=-=- Config Class -=-=- #
 
@@ -152,7 +152,7 @@ class UsersService(BaseService[UsersConfig]):
         query_bus.register("GetUserNickname", self.query_get_user_nickname)
 
         query_bus.register("GetNickname", self.query_get_nickname)
-        query_bus.register("GetLurkMessage", self.query_get_nickname)
+        query_bus.register("GetLurkMessage", self.query_get_lurk_message)
 
     # -=-=- #
 
@@ -205,6 +205,7 @@ class UsersService(BaseService[UsersConfig]):
 
     
     def can_greet_user(self, user:str) -> bool:
+        if user is None: return
         user = user.strip().lower()
         return True\
             and user != ''\
@@ -217,9 +218,8 @@ class UsersService(BaseService[UsersConfig]):
     def get_valid_users(self, *users:str):
         usrs = []
         for user in users:
-            user = user.strip()
+            user = user.strip().lower()
             if user in usrs: continue
-            if user == '': continue
             if not self.can_greet_user(user): continue
             usrs.append(user)
         return usrs
@@ -271,7 +271,7 @@ class UsersService(BaseService[UsersConfig]):
         if user not in self.lurk_messages: self.lurk_messages[user] = []
         for lurk_message in lurk_messages: self.lurk_messages[user].append(lurk_message)
 
-    def get_lurk_message(self, user:str) -> str:
+    def get_lurk_message(self, user:str) -> tuple[str, dict]:
         message = self._get_custom_lurk_message(user)
         matched = self.get_matching(message)
         return message, matched
@@ -345,9 +345,9 @@ class UsersService(BaseService[UsersConfig]):
         return Response(data, nicknames=data)
 
     async def query_get_lurk_message(self, data:UserData) -> Response:
-        message = self.get_lurk_message(data.user)
-        return Response(message, message=message)
+        print(data)
+        message, nicknames = self.get_lurk_message(data.user)
+        return Response(message, message=message, micknames=nicknames)
     
-
 
 # EOF #
