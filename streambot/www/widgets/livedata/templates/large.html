@@ -1,0 +1,107 @@
+<script>
+let adTimerInterval = null;
+function startAdTimer(dur) {
+    if (adTimerInterval) {
+        clearInterval(adTimerInterval);
+    }
+    let remaining = dur;
+    const update = () => {
+        if (remaining > 0) {
+            $("#twitch-in-ads").html(`In Ads (${remaining})`);
+            remaining--;
+        } else {
+            clearInterval(adTimerInterval);
+            adTimerInterval = null;
+            $("#twitch-in-ads").html(`Done!`);
+        }
+    };
+    update();
+    adTimerInterval = setInterval(update, 1000);
+}
+
+
+$(document).ready(() => { 
+    // Connect to the WebSocket server
+    const ws = new WebSocket("ws://127.0.0.1:13337/ws/livedata");
+
+    ws.addEventListener("open", () => {
+    });
+
+    // Listen for stop time updates from Python
+    ws.addEventListener("message", (event) => {
+        try {
+            const data = JSON.parse(event.data);
+
+            if (data.event === "update") {
+                console.log("Received update:", data.message);
+                if (data.message['twitch-viewers'] !== undefined)
+                    $("#twitch-viewers").html(data.message['twitch-viewers']);
+                if (data.message['youtube-viewers'] !== undefined)
+                    $("#youtube-viewers").html(data.message['youtube-viewers']);
+                
+                if (data.message['twitch-raids'] !== undefined)
+                    $("#twitch-raids").html(data.message['twitch-raids']);
+                if (data.message['twitch-raid-viewers'] !== undefined)
+                    $("#twitch-raid-viewers").html(data.message['twitch-raid-viewers']);
+                
+                if (data.message['twitch-in-ads'] !== undefined)
+                    $("#twitch-in-ads").prop('hidden', !data.message['twitch-in-ads']);
+                if (data.message['twitch-ad-dur'] !== undefined)
+                    startAdTimer(data.message['twitch-ad-dur'])
+
+                if (data.message['twitch-live-state'] !== undefined) {
+                    $("#twitch-viewers").attr("class", function(i, c) {
+                        return c.replace(/\blive-state-\S+/g, "").trim();
+                    }).addClass(`live-state-${data.message['twitch-live-state']}`);
+                }
+                if (data.message['youtube-live-state'] !== undefined) {
+                    $("#youtube-viewers").attr("class", function(i, c) {
+                        return c.replace(/\blive-state-\S+/g, "").trim();
+                    }).addClass(`live-state-${data.message['youtube-live-state']}`);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to parse WS message:", err);
+        }
+    });
+
+    ws.addEventListener("close", () => {
+    });
+});
+</script>
+<style>
+    #livedata-widget {
+        order: 998;
+    }
+
+    #livedata {
+        margin: 0px 6px;
+        font-size: larger;
+    }
+    #livedata>*{
+        margin-bottom: 3px;
+    }
+    #livedata>*:last-child {
+        margin-bottom: 0px;
+    }
+
+    #livedata i {
+        padding: 0px 6px;
+    }
+
+    
+    .live-state-connecting::after { content: " Connecting"; }
+    .live-state-connected::after { content: " Connected"; }
+    .live-state-offline::after { content: " Offline"; }
+    .live-state-online::after { content: " Online"; }
+    .live-state-extra::after { content: " Extra"; }
+</style>
+
+<div id="livedata">
+    <div class="row">
+        <div><i class="fa fa-twitch" id="twitch-live-state"></i><span id="twitch-viewers" class="live-state-{{twitch_live_state}}">{{twitch_viewers or 0}}</span></div>
+        <div><i class="fa fa-youtube-play" id="youtube-live-state"></i><span id="youtube-viewers" class="live-state-{{youtube_live_state}}">{{youtube_viewers or 0}}</span></div>
+        <div><span {{ 'hidden' if not twitch_in_ads else '' }} id="twitch-in-ads">In Ads</span></div>
+        <div><i class="fa fa-parachute-box"></i><span id="twitch-raids">{{twitch_raids or 0}}</span><i class="fa fa-user"></i><span id="twitch-raid-viewers">{{twitch_raid_viewers or 0}}</span></div>
+    </div>
+</div>
