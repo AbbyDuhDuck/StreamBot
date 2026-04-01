@@ -40,6 +40,8 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import Any, List
 
+import json
+
 import os
 import asyncio
 
@@ -194,7 +196,9 @@ class WebUIService(BaseService[WebUIConfig]):
         if os.path.isfile(builtin_path) or os.path.isfile(user_path):
             path = os.path.join(widget_name, "templates", template_name).replace("\\", "/")
         else:
-            raise FileNotFoundError(f"Template {template_name} for widget {widget_name} not found")
+            # print(FileNotFoundError(f"Template {template_name} for widget {widget_name} not found"))
+            # raise FileNotFoundError(f"Template {template_name} for widget {widget_name} not found")
+            return None
 
         return self.render_template(path, context)
 
@@ -225,6 +229,7 @@ class WebUIService(BaseService[WebUIConfig]):
 
         if '.' not in path.split("/")[-1]:
             html = self.render_widget_template(widget_name, template_name, context)
+            if html is None: return HTMLResponse(None, status_code=404)
             return HTMLResponse(html)
         
         # For JS/CSS files, fall back to FileResponse
