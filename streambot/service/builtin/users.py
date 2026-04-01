@@ -38,7 +38,7 @@ from streambot.core.decorators import debounce
 
 # -=-=- Functions & Classes -=-=- #
 
-USER_DEBOUNCE_SECONDS = 15
+USER_DEBOUNCE_SECONDS = 10
 
 # -=-=- Config Class -=-=- #
 
@@ -339,10 +339,11 @@ class UsersService(BaseService[UsersConfig]):
         return Response(nicknames, nicknames=nicknames)
 
     async def query_get_nickname(self, data:UserData) -> Response:
-        data = {}
-        if data.user in self.nicknames: data['nickname'] = self.nicknames[data.user]
-        if data.user in self.how_say: data['how_say'] = self.how_say[data.user]
-        return Response(data, nicknames=data)
+        user = data.user.lower()
+        resp = {}
+        if user in self.nicknames: resp['nickname'] = self.nicknames[user]
+        if user in self.how_say: resp['how_say'] = self.how_say[user]
+        return Response(resp, user=data.user, nicknames=resp)
 
     async def query_get_lurk_message(self, data:UserData) -> Response:
         print(data)
