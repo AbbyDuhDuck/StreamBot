@@ -30,4 +30,6 @@ from . import users, data
 
 from . import ai
 
+from . import midi
+
 # EOF #
