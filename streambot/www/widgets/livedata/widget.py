@@ -157,7 +157,7 @@ class Widget(base.Widget):
         await self.update_in_ads()
 
     async def on_status_change(self, data:ChatStatusChangeData):
-        print(f"{data.platform.value} Status Changed")
+        # print(f"{data.platform.value} Status Changed")
         if data.platform is Platform.TWITCH:
             await self.on_twitch_status_change(data, False)
         if data.platform is Platform.YOUTUBE:
