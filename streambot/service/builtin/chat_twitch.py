@@ -66,7 +66,7 @@ from typing import Generic, TypeVar
 
 from .chat import ChatMessageOutData, Platform
 
-from streambot.core.decorators import throttle
+from streambot.core.decorators import throttle, queued
 
 # from . import ChatService, ChatSettings
 
@@ -595,6 +595,7 @@ class TwitchService(BaseService[TwitchConfig]):
 
     # -=-=- #
 
+    @queued
     async def event_shoutout_user(self, data:EventData):
         if not hasattr(data, 'user'): return
         # -=-=- #
@@ -615,7 +616,11 @@ class TwitchService(BaseService[TwitchConfig]):
                 await asyncio.sleep(150)
             
         await self.out(f"Shouted out user: {user}")
-        if not hasattr(data, 'user'): return
+        if self.event_shoutout_user.is_last() and not self.event_shoutout_user.is_only():
+            await self.out(f"Evenrone shouted out!")
+        
+        # wait 2m10s before allowing another shoutout
+        await self.event_shoutout_user.wait(user, timeout=130)
 
 
     async def event_start_raid(self, data:EventData):
