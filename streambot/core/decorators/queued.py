@@ -1,5 +1,6 @@
 import asyncio
 from functools import wraps
+import inspect
 
 # ------------------------
 # Signal hub
@@ -66,6 +67,7 @@ Queued = Queued()
 def queued(_func=None, *, maxsize=0, timeout=None):
     def decorator(func):
         wrapper_registry = {}
+        first=None
 
         async def worker(wrapper_key):
             state = wrapper_registry[wrapper_key]
@@ -96,7 +98,7 @@ def queued(_func=None, *, maxsize=0, timeout=None):
                     if q.empty() and state["active"] == 0:
                         cb = getattr(func, f"on_{func.__name__}_empty", None)
                         if cb:
-                            if asyncio.iscoroutinefunction(cb):
+                            if inspect.iscoroutinefunction(cb):
                                 asyncio.create_task(cb())
                             else:
                                 cb()
@@ -110,7 +112,8 @@ def queued(_func=None, *, maxsize=0, timeout=None):
                     "queue": asyncio.Queue(maxsize=maxsize),
                     "signals": _SignalHub(),
                     "active": 0,
-                    "worker": asyncio.create_task(worker(wrapper))
+                    "worker": asyncio.create_task(worker(wrapper)),
+                    "is_first": wrapper_registry[wrapper]["active"] == 0 and wrapper_registry[wrapper]["queue"].empty(),
                 }
                 Queued._registry.append(wrapper)
 
@@ -137,15 +140,22 @@ def queued(_func=None, *, maxsize=0, timeout=None):
             if signal_id:
                 state["signals"].cancel(signal_id)
 
-        def queue_size():
+        def queue_size() -> int:
             state = wrapper_registry[wrapper]
             return state["queue"].qsize()
 
-        def is_last():
+        def is_first() -> bool:
+            state = wrapper_registry[wrapper]
+            return state["is_first"]
+
+        def is_last() -> bool:
             state = wrapper_registry[wrapper]
             return state["queue"].qsize() == 0 and state["active"] == 1
 
-        def current_id():
+        def is_only() -> bool:
+            return is_first() and is_last()
+
+        def current_id() -> int:
             state = wrapper_registry[wrapper]
             return 1 if state["active"] > 0 else 0
 
@@ -154,7 +164,9 @@ def queued(_func=None, *, maxsize=0, timeout=None):
         wrapper.done = done
         wrapper.cancel = cancel
         wrapper.queue_size = queue_size
+        wrapper.is_first = is_first
         wrapper.is_last = is_last
+        wrapper.is_only = is_only
         wrapper.current_id = current_id
         wrapper._registry = wrapper_registry
 
