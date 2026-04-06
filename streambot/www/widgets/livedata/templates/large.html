@@ -59,6 +59,24 @@ $(document).ready(() => {
                         return c.replace(/\blive-state-\S+/g, "").trim();
                     }).addClass(`live-state-${data.message['youtube-live-state']}`);
                 }
+                // -=-=- //
+                if (data.message['shared-chat'] !== undefined) {
+                    if (data.message['shared-chat'])
+                        $("#livedata .shared-chat-off").removeClass("shared-chat-off").addClass("shared-chat-on");
+                    else
+                        $("#livedata .shared-chat-on").removeClass("shared-chat-on").addClass("shared-chat-off");
+                }
+                if (data.message['shared-chat-host'] !== undefined)
+                    $("#shared-chat-host").html(data.message['shared-chat-host']);
+                if (data.message['shared-chat-participants'] !== undefined) {
+                    $("#shared-chat-participants-length").html(data.message['shared-chat-participants'].length);
+                    $("#shared-chat-participants").html("");
+                    data.message['shared-chat-participants'].forEach(participant => {
+                        $("#shared-chat-participants").append(`<span class="participant">${participant}</span>`);
+                    });
+                }
+                if (data.message['shared-chat-viewers'] !== undefined)
+                    $("#shared-chat-viewers").html(data.message['shared-chat-viewers']);
             }
         } catch (err) {
             console.error("Failed to parse WS message:", err);
@@ -93,8 +111,15 @@ $(document).ready(() => {
     .live-state-connecting::after { content: " Connecting"; }
     .live-state-connected::after { content: " Connected"; }
     .live-state-offline::after { content: " Offline"; }
-    .live-state-online::after { content: " Online"; }
-    .live-state-extra::after { content: " Extra"; }
+    .live-state-online::after, .live-state-extra::after { content: " Online"; }
+    
+    #twitch-viewers.live-state-extra::after { content: " Shared Chat"; }
+
+    .shared-chat-off {
+        visibility: hidden;
+        content-visibility: hidden;
+    }
+
 </style>
 
 <div id="livedata">
@@ -103,5 +128,16 @@ $(document).ready(() => {
         <div><i class="fa fa-youtube-play" id="youtube-live-state"></i><span id="youtube-viewers" class="live-state-{{youtube_live_state}}">{{youtube_viewers or 0}}</span></div>
         <div><span {{ 'hidden' if not twitch_in_ads else '' }} id="twitch-in-ads">In Ads</span></div>
         <div><i class="fa fa-parachute-box"></i><span id="twitch-raids">{{twitch_raids or 0}}</span><i class="fa fa-user"></i><span id="twitch-raid-viewers">{{twitch_raid_viewers or 0}}</span></div>
+    </div>
+    <div class="row shared-chat-{{"on" if shared_chat else "off"}}">
+            <div><i class="fa-solid fa-comments"></i><span id="shared-chat-host">{{shared_chat_host or "No Host"}}</span></div>
+            <div>
+                <i class="fa-solid fa-users"></i>
+                <span id="shared-chat-participants-length">{{shared_chat_participants | length}}</span>
+                <span id="shared-chat-participants">{% for participant in shared_chat_participants %}
+                    <span class="participant">{{ participant }}</span>
+                {% endfor %}</span>
+            </div>
+            <div><i class="fa-solid fa-eye"></i><span id="shared-chat-viewers">{{shared_chat_viewers or 0}}</span></div>
     </div>
 </div>

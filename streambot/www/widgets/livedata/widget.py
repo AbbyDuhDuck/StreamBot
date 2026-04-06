@@ -42,6 +42,11 @@ class Widget(base.Widget):
     twitch_in_ads:bool = False
     twitch_ad_dur:int = 0
 
+    shared_chat:bool = False
+    shared_chat_host:str|None = None
+    shared_chat_participants:list[str] = []
+    shared_chat_viewers:int = 0
+
     @property
     def twitch_avg_viewers(self):
         return round(self.twitch_raid_viewers / max(1, self.twitch_raids), 1)
@@ -114,6 +119,7 @@ class Widget(base.Widget):
     async def get_viewers(self):
         resp:Response = await self.query_bus.query("GetTwitchViewers", {})
         self.twitch_viewers = resp.get()
+        self.shared_chat_viewers = resp.get('shared_viewers', self.shared_chat_viewers)
         resp:Response = await self.query_bus.query("GetYouTubeViewers", {})
         self.youtube_viewers = resp.get()
 
@@ -137,6 +143,11 @@ class Widget(base.Widget):
 
             'twitch_live_state': self.twitch_live_state.name.lower(),
             'youtube_live_state': self.youtube_live_state.name.lower(),
+
+            'shared_chat': self.shared_chat,
+            'shared_chat_host': self.shared_chat_host,
+            'shared_chat_participants': self.shared_chat_participants,
+            'shared_chat_viewers': self.shared_chat_viewers,
         }
     
     # -=-=- Events -=-=- #
@@ -169,6 +180,12 @@ class Widget(base.Widget):
         # -=-=- #
         self.twitch_viewers = data.status.get('live_viewers', self.twitch_viewers)
         self.twitch_live_state = data.status.get('live_state', self.twitch_live_state)
+        # -=-=- #
+        self.shared_chat = data.status.get('shared_chat', self.shared_chat)
+        self.shared_chat_host = data.status.get('shared_chat_host', self.shared_chat_host)
+        self.shared_chat_participants = data.status.get('shared_chat_participants', self.shared_chat_participants)
+        self.shared_chat_viewers = data.status.get('shared_chat_viewers', self.shared_chat_viewers)
+        # -=-=- #
         if push: await self.update_status_change()
 
     async def on_youtube_status_change(self, data:ChatStatusChangeData, push:bool=True):

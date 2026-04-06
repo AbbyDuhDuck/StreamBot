@@ -37,7 +37,7 @@ from typing import Dict, List, override, Type
 
 import requests
 from twitchAPI.helper import first, build_url, TWITCH_API_BASE_URL
-from twitchAPI.twitch import Twitch, TwitchUser, CustomReward, Stream, Video, ChannelInformation, VideoType, Clip
+from twitchAPI.twitch import Twitch, TwitchUser, CustomReward, Stream, Video, ChannelInformation, VideoType, Clip, SharedChatSession
 
 from twitchAPI.eventsub.websocket import EventSubWebsocket
 from twitchAPI.object.eventsub import ChannelFollowEvent, ChatMessage
@@ -47,6 +47,7 @@ from twitchAPI.eventsub.webhook import EventSubWebhook
 # from twitchAPI.eventsub.base import EventSubBase
 from twitchAPI.object.eventsub import StreamOnlineEvent, StreamOfflineEvent, ChannelPointsCustomRewardRedemptionAddEvent, ChannelAdBreakBeginEvent
 from twitchAPI.object.eventsub import ChannelUpdateEvent
+from twitchAPI.object.eventsub import ChannelSharedChatBeginEvent, ChannelSharedChatEndEvent, ChannelSharedChatUpdateEvent
 from twitchAPI.object import eventsub
 from twitchAPI.type import AuthScope, ChatEvent, TwitchAPIException
 from twitchAPI import chat
@@ -122,6 +123,8 @@ class TwitchConfig(ConfigClass):
         AuthScope.MODERATOR_READ_FOLLOWERS, AuthScope.MODERATOR_MANAGE_SHOUTOUTS, AuthScope.CHANNEL_MANAGE_RAIDS,
         AuthScope.CHANNEL_MANAGE_ADS, AuthScope.CHANNEL_READ_ADS,
     ])
+    # hopefully remove
+    account_head_mod:str = None
 
 # -=-=- Data Classes -=-=- #
 
@@ -199,6 +202,11 @@ class TwitchService(BaseService[TwitchConfig]):
     viewers:int = 0
     live_state:LiveState = LiveState.CONNECTING
     # -=-=- #
+    shared_chat:bool = False
+    shared_chat_host:str|None = None
+    shared_chat_participants:list[str] = []
+    shared_chat_viewers:int = 0
+    # -=-=- #
     event_bus:EventBus = EventBus.get_instance()
 
     async def start(self):
@@ -209,6 +217,7 @@ class TwitchService(BaseService[TwitchConfig]):
         await self._start_bots()
         await self._start_events()
         # -=-=- #
+        await self.poll_shared_chat()
         await self.poll_data()
 
     async def stop(self):
@@ -290,7 +299,6 @@ class TwitchService(BaseService[TwitchConfig]):
             on_message=self.chatevent_on_message,
             on_ready=self.chatevent_on_ready,
         )
-        pass
 
     async def _chat_start(self, twitch:Twitch, channel:str, 
             on_message=None, on_ready=None
@@ -341,7 +349,22 @@ class TwitchService(BaseService[TwitchConfig]):
         await eventsub.listen_channel_follow_v2(user_id, user_id, self.make_chat_event("Follow"))
         
         await eventsub.listen_channel_points_custom_reward_redemption_add(user_id, self.make_chat_event("Redeem"))
+
+        await eventsub.listen_channel_shared_chat_update(user_id, self.make_chat_event("SharedChatUpdate"))
+        await eventsub.listen_channel_shared_chat_begin(user_id, self.make_chat_event("SharedChatBegin"))
+        await eventsub.listen_channel_shared_chat_end(user_id, self.make_chat_event("SharedChatEnd"))
+
+        # await eventsub.listen_channel_chat_notification(user_id, self.make_chat_event("ChatNotification"))
+        # await eventsub.listen_automod_message_hold(user_id, self.make_chat_event("AutomodHold"))
         
+        # await eventsub.listen_channel_poll_progress(user_id, self.make_chat_event("PollProgress"))
+        # await eventsub.listen_channel_poll_begin(user_id, self.make_chat_event("PollBegin"))
+        # await eventsub.listen_channel_poll_end(user_id, self.make_chat_event("PollEnd"))
+
+        # await eventsub.listen_channel_prediction_begin(user_id, self.make_chat_event("PredictionBegin"))
+        # await eventsub.listen_channel_prediction_end(user_id, self.make_chat_event("PredictionEnd"))
+        # await eventsub.listen_channel_prediction_lock(user_id, self.make_chat_event("PredictionLock"))
+        # await eventsub.listen_channel_prediction_progress(user_id, self.make_chat_event("PredictionProgress"))
 
     # -=-=- #
 
@@ -366,11 +389,10 @@ class TwitchService(BaseService[TwitchConfig]):
         await self.set_live_state(LiveState.CONNECTED)
 
     async def chatevent_on_message(self, message:chat.ChatMessage):
-        # print(f"message by {message.user.display_name} from {message.room.name} chat")
-        # print(f"Shared Chat Message (maybe): {message.source_room_id != message.room.room_id}")
-        # -=-=- #
+        shared_chat = self.shared_chat and message.source_room_id != message.room.room_id
+        has_broadcaster = message.user.name == (self.config.account_user or "").lower()
+        has_head_mod = message.user.name == (self.config.account_head_mod or "").lower()
         has_paid = message.user.subscriber or message.user.turbo
-        if message.user.user_type: print(message.user.user_type)
         # -=-=- #
         await self.event_bus.emit("TwitchChatMessage", TwitchChatMessageData(
             message=message.text,
@@ -378,9 +400,9 @@ class TwitchService(BaseService[TwitchConfig]):
             reply_user=message.reply_parent_display_name,
             timestamp=message.sent_timestamp,
             platform=Platform.TWITCH,
-            # shared_chat=False,
-            has_broadcaster=message.user.name==self.config.account_user.lower(),
-            # has_head_mod=,
+            shared_chat=shared_chat,
+            has_broadcaster=has_broadcaster,
+            has_head_mod=has_head_mod,
             has_mod=message.user.mod,
             has_vip=message.user.vip,
             has_ads=not has_paid,
@@ -389,6 +411,7 @@ class TwitchService(BaseService[TwitchConfig]):
             emotes=self.parse_emotes(message.text, message.emotes)
         ))
 
+        message.user.user_type
         if message.bits or 0 < 0:
             await self.event_bus.emit("TwitchMessageBitsUsedEvent", TwitchEventData(message, data=message))
 
@@ -411,6 +434,10 @@ class TwitchService(BaseService[TwitchConfig]):
 
         # event_bus.register("TwitchStreamOnlineEvent", self.event_on_redeem)
         # event_bus.register("TwitchStreamOfflineEvent", self.event_on_redeem)
+
+        event_bus.register("TwitchSharedChatUpdateEvent", self.event_on_shared_chat_update)
+        event_bus.register("TwitchSharedChatBeginEvent", self.event_on_shared_chat_begin)
+        event_bus.register("TwitchSharedChatEndEvent", self.event_on_shared_chat_end)
         
         event_bus.register("OnHalfMinuteTick", self.event_on_tick)
         # self.register("OnFiveMinuteTick", self.on_long_tick)
@@ -436,6 +463,8 @@ class TwitchService(BaseService[TwitchConfig]):
         query_bus.register("GetTwitchChannelData", response(self.get_channel_data))
 
         query_bus.register("GetTwitchViewers", self.query_get_twitch_viewers)
+        query_bus.register("GetTwitchLiveState", self.query_get_twitch_live_state)
+        query_bus.register("GetTwitchSharedChatState", self.query_get_shared_chat_state)
 
         query_bus.register("GetTwitchClipData", clip_response(self.get_clip_data))
         query_bus.register("GetTwitchRandomClipData", response(self.get_random_clip_data))
@@ -462,7 +491,20 @@ class TwitchService(BaseService[TwitchConfig]):
     async def get_channel_data(self, channel:str, force:bool=False) -> ChannelInformation:
         user_id = await self.get_user_id(channel, force)
         if user_id: return (await self.twitch_user.get_channel_information(broadcaster_id=[user_id]))[0]
-    
+
+    async def get_shared_chat_session(self, channel:str, force:bool=False) -> SharedChatSession|None:
+        user_id = await self.get_user_id(channel, force)
+        if user_id: return await self.twitch_user.get_shared_chat_session(user_id)
+
+    async def get_shared_chat_session_participants(self, session:SharedChatSession) -> list[TwitchUser]:
+        if session is None: return []
+        return await self.twitch_user.get_users(user_ids=[p.broadcaster_id for p in session.participants])
+
+    async def get_shared_chat_participants(self, channel:str, force:bool=False) -> list[TwitchUser]:
+        session = await self.get_shared_chat_session(channel, force)
+        if session is None: return []
+        return await self.get_shared_chat_session_participants(session)
+ 
     # -=-=- #
     
     async def get_random_clip_data(self, channel:str, force:bool=False) -> Clip|None:
@@ -477,6 +519,35 @@ class TwitchService(BaseService[TwitchConfig]):
 
     # -=-=- #
 
+    async def emit_status_change(self):
+        status = {
+            'live_viewers': self.viewers,
+            'live_state':self.live_state if not self.shared_chat else LiveState.EXTRA,
+            # -=-=- #
+            'shared_chat': self.shared_chat,
+            'shared_chat_host': self.shared_chat_host,
+            'shared_chat_participants': self.shared_chat_participants,
+            'shared_chat_viewers': self.shared_chat_viewers
+
+        }
+        await self.event_bus.emit(f"ChatStatusChangeEvent", ChatStatusChangeData(platform=Platform.TWITCH, status=status))
+
+    @throttle(10)
+    async def poll_shared_chat(self):
+        session = await self.get_shared_chat_session(self.config.account_user)
+        if session is None:
+            self.shared_chat = False
+            self.shared_chat_host = None
+            self.shared_chat_participants = []
+            self.shared_chat_viewers = 0
+            return
+        # -=-=- #
+        participants = await self.get_shared_chat_session_participants(session)
+        self.shared_chat = True
+        self.shared_chat_host = session.host_display_name
+        self.shared_chat_participants = [p.display_name for p in participants]
+        self.shared_chat_viewers = sum(p.viewer_count for p in participants)
+
     @throttle(10)
     async def poll_data(self):
         stream = await self.get_stream_data(self.config.account_user)
@@ -488,11 +559,7 @@ class TwitchService(BaseService[TwitchConfig]):
         self.viewers = stream.viewer_count
         await self.set_live_state(LiveState.ONLINE, False)
         # -=-=- #
-        status = {
-            'live_viewers': self.viewers,
-            'live_state':self.live_state,
-        }
-        await self.event_bus.emit(f"ChatStatusChangeEvent", ChatStatusChangeData(platform=Platform.TWITCH, status=status))
+        self.emit_status_change()
 
     # -=-=- #
 
@@ -530,14 +597,6 @@ class TwitchService(BaseService[TwitchConfig]):
         # send the message
         await self.twitch_app.send_chat_message(channel_id, user_id, message, for_source_only=True)
 
-        # as_user = data.get('as_user', False)
-        # shared_msg = data.get('shared_msg', False)
-        # if not as_user and shared_msg: await self.disply_message_out(
-        #     message, platform="Twitch", 
-        #     user=self.settings.account_bot,
-        #     color="#00ff7f"
-        # )
-        # await self._msg(message, as_user, shared_msg)
 
     # -=-=- Events -=-=- #
 
@@ -545,12 +604,22 @@ class TwitchService(BaseService[TwitchConfig]):
         await self.poll_data()
 
     async def query_get_twitch_viewers(self, _:QueryData) -> Response:
+        await self.poll_shared_chat()
         await self.poll_data()
-        return Response(self.viewers, viewers=self.viewers)
+        return Response(self.viewers, viewers=self.viewers, shared_viewers=self.shared_chat_viewers)
     
     async def query_get_twitch_live_state(self, _:QueryData) -> Response:
         await self.poll_data()
         return Response(self.live_state, live_state=self.live_state)
+
+    async def query_get_shared_chat_state(self, _:QueryData) -> Response:
+        await self.poll_shared_chat()
+        return Response(self.shared_chat, 
+            shared_chat=self.shared_chat,
+            shared_chat_host=self.shared_chat_host,
+            shared_chat_participants=self.shared_chat_participants,
+            shared_chat_viewers=self.shared_chat_viewers
+        )
 
     # -=-=- #
 
@@ -643,6 +712,39 @@ class TwitchService(BaseService[TwitchConfig]):
         user_id = await self.get_user_id(self.config.account_user)
         # -=-=- #
         await self.twitch_user.cancel_raid(user_id)
+
+    # -=-=- #
+
+    async def event_on_shared_chat_update(self, data:TwitchEventData[ChannelSharedChatUpdateEvent]):
+        print(f"Shared Chat Updated: {data.data.event.participants}")
+        
+        participants = await self.get_shared_chat_session_participants(data.data.event)
+        print(f"Shared Chat Members: {" ".join([p.display_name for p in participants])}")
+        
+        self.shared_chat = True
+        self.shared_chat_host = data.data.event.host_broadcaster_user_name
+        self.shared_chat_participants = [p.display_name for p in participants]
+        self.shared_chat_viewers = sum(p.viewer_count for p in participants)
+
+    async def event_on_shared_chat_begin(self, data:TwitchEventData[ChannelSharedChatBeginEvent]):
+        print(f"Shared Chat Started - Host: {data.data.event.host_broadcaster_user_name}")
+        
+        participants = await self.get_shared_chat_session_participants(data.data.event)
+        print(f"Shared Chat Members: {" ".join([p.display_name for p in participants])}")
+ 
+        self.shared_chat = True
+        self.shared_chat_host = data.data.event.host_broadcaster_user_name
+        self.shared_chat_participants = [p.display_name for p in participants]
+        self.shared_chat_viewers = sum(p.viewer_count for p in participants)
+        
+
+    async def event_on_shared_chat_end(self, data:TwitchEventData[ChannelSharedChatEndEvent]):
+        print(f"Shared Chat Ended - Host: {data.data.event.host_broadcaster_user_name}")
+        
+        self.shared_chat = False
+        self.shared_chat_host = None
+        self.shared_chat_participants = []
+        self.shared_chat_viewers = 0
         
 
 # EOF #
