@@ -46,7 +46,7 @@ from twitchAPI.oauth import UserAuthenticator, UserAuthenticationStorageHelper
 from twitchAPI.eventsub.webhook import EventSubWebhook
 # from twitchAPI.eventsub.base import EventSubBase
 from twitchAPI.object.eventsub import StreamOnlineEvent, StreamOfflineEvent, ChannelPointsCustomRewardRedemptionAddEvent, ChannelAdBreakBeginEvent
-from twitchAPI.object.eventsub import ChannelUpdateEvent
+from twitchAPI.object.eventsub import ChannelUpdateEvent, ChannelChatNotificationEvent
 from twitchAPI.object.eventsub import ChannelSharedChatBeginEvent, ChannelSharedChatEndEvent, ChannelSharedChatUpdateEvent
 from twitchAPI.object import eventsub
 from twitchAPI.type import AuthScope, ChatEvent, TwitchAPIException
@@ -118,7 +118,7 @@ class TwitchConfig(ConfigClass):
     account_bot:str = None
     token_path:str = "./usr/secret/TOKEN_{type}_{user}.js"
     user_scope:list[AuthScope] = field(default_factory=lambda: [
-        AuthScope.CHAT_READ, AuthScope.CHAT_EDIT,
+        AuthScope.CHAT_READ, AuthScope.CHAT_EDIT, AuthScope.USER_READ_CHAT,
         AuthScope.CHANNEL_READ_REDEMPTIONS, AuthScope.BITS_READ, AuthScope.CHANNEL_READ_SUBSCRIPTIONS,
         AuthScope.MODERATOR_READ_FOLLOWERS, AuthScope.MODERATOR_MANAGE_SHOUTOUTS, AuthScope.CHANNEL_MANAGE_RAIDS,
         AuthScope.CHANNEL_MANAGE_ADS, AuthScope.CHANNEL_READ_ADS,
@@ -279,6 +279,7 @@ class TwitchService(BaseService[TwitchConfig]):
         await twitch.set_app_authentication(token, scope=[
             AuthScope.CHAT_READ,
             AuthScope.CHAT_EDIT,
+            AuthScope.USER_READ_CHAT,
             AuthScope.USER_WRITE_CHAT,  # required for for_source_only messages
         ])
         # print("App token acquired:", self.twitch_app.get_used_token())
@@ -354,7 +355,7 @@ class TwitchService(BaseService[TwitchConfig]):
         await eventsub.listen_channel_shared_chat_begin(user_id, self.make_chat_event("SharedChatBegin"))
         await eventsub.listen_channel_shared_chat_end(user_id, self.make_chat_event("SharedChatEnd"))
 
-        # await eventsub.listen_channel_chat_notification(user_id, self.make_chat_event("ChatNotification"))
+        await eventsub.listen_channel_chat_notification(user_id, user_id, self.make_chat_event("ChatNotification"))
         # await eventsub.listen_automod_message_hold(user_id, self.make_chat_event("AutomodHold"))
         
         # await eventsub.listen_channel_poll_progress(user_id, self.make_chat_event("PollProgress"))
@@ -438,6 +439,8 @@ class TwitchService(BaseService[TwitchConfig]):
         event_bus.register("TwitchSharedChatUpdateEvent", self.event_on_shared_chat_update)
         event_bus.register("TwitchSharedChatBeginEvent", self.event_on_shared_chat_begin)
         event_bus.register("TwitchSharedChatEndEvent", self.event_on_shared_chat_end)
+
+        event_bus.register("TwitchChatNotificationEvent", self.event_chat_notification)
         
         event_bus.register("OnHalfMinuteTick", self.event_on_tick)
         # self.register("OnFiveMinuteTick", self.on_long_tick)
@@ -746,5 +749,14 @@ class TwitchService(BaseService[TwitchConfig]):
         self.shared_chat_participants = []
         self.shared_chat_viewers = 0
         
+    async def event_chat_notification(self, data:TwitchEventData[ChannelChatNotificationEvent]):
+        print(f"Chat Notification ({data.data.event.notice_type}): {data.data.event.message.text}")
+        print(f"Message Type: {data.data.metadata.message_type}")
+        print(f"Chat Notification System Message: {data.data.event.system_message}")
+        event = data.data.event
+        if event.announcement is not None:
+            print(f"Announcement: {event.announcement.to_dict()}")
+        if event.charity_donation is not None:
+            print(f"Charity Donation: {event.charity_donation.to_dict()}")
 
 # EOF #
