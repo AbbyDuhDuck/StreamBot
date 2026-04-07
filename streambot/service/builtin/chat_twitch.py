@@ -37,7 +37,7 @@ from typing import Dict, List, override, Type
 
 import requests
 from twitchAPI.helper import first, build_url, TWITCH_API_BASE_URL
-from twitchAPI.twitch import Twitch, TwitchUser, CustomReward, Stream, Video, ChannelInformation, VideoType, Clip, SharedChatSession
+from twitchAPI.twitch import Twitch, TwitchUser, Moderator, CustomReward, Stream, Video, ChannelInformation, VideoType, Clip, SharedChatSession
 
 from twitchAPI.eventsub.websocket import EventSubWebsocket
 from twitchAPI.object.eventsub import ChannelFollowEvent, ChatMessage
@@ -118,7 +118,8 @@ class TwitchConfig(ConfigClass):
     account_bot:str = None
     token_path:str = "./usr/secret/TOKEN_{type}_{user}.js"
     user_scope:list[AuthScope] = field(default_factory=lambda: [
-        AuthScope.CHAT_READ, AuthScope.CHAT_EDIT, AuthScope.USER_READ_CHAT,
+        AuthScope.CHAT_READ, AuthScope.CHAT_EDIT, AuthScope.USER_READ_CHAT, 
+        AuthScope.MODERATION_READ, AuthScope.CHANNEL_READ_VIPS,
         AuthScope.CHANNEL_READ_REDEMPTIONS, AuthScope.BITS_READ, AuthScope.CHANNEL_READ_SUBSCRIPTIONS,
         AuthScope.MODERATOR_READ_FOLLOWERS, AuthScope.MODERATOR_MANAGE_SHOUTOUTS, AuthScope.CHANNEL_MANAGE_RAIDS,
         AuthScope.CHANNEL_MANAGE_ADS, AuthScope.CHANNEL_READ_ADS,
@@ -450,7 +451,8 @@ class TwitchService(BaseService[TwitchConfig]):
         # -=-=- #
         def response(cb:Callable[..., Coroutine]):
             async def func(data:TwitchChannelQueryData):
-                resp = await cb(channel=data.channel, force=data.force)
+                resp = await cb(**data.__dict__)
+                # resp = await cb(channel=data.channel, force=data.force)
                 return TwitchQueryResponse(resp, data=resp)
             return func
         def clip_response(cb:Callable[..., Coroutine]):
@@ -461,6 +463,13 @@ class TwitchService(BaseService[TwitchConfig]):
 
         query_bus.register("GetTwitchUser", response(self.get_user))
         query_bus.register("GetTwitchUserID", response(self.get_user_id))
+        query_bus.register("IsTwitchFollower", response(self.is_follower))
+
+        query_bus.register("GetTwitchVIPs", response(self.get_vips))
+        query_bus.register("GetTwitchModerators", response(self.get_moderators))
+        query_bus.register("GetTwitchHeadModerator", response(self.get_head_mod))
+        query_bus.register("GetTwitchBroadcaster", response(self.get_broadcaster))
+                           
         query_bus.register("GetTwitchStreamData", response(self.get_stream_data))
         query_bus.register("GetTwitchVODData", response(self.get_last_vod_data))
         query_bus.register("GetTwitchChannelData", response(self.get_channel_data))
@@ -482,6 +491,27 @@ class TwitchService(BaseService[TwitchConfig]):
     async def get_user_id(self, channel:str, force:bool=False) -> str:
         user = await self.get_user(channel, force)
         if user: return user.id
+
+    async def is_follower(self, channel:str, **_) -> bool:
+        user_id = await self.get_user_id(self.config.account_user)
+        other_id = await self.get_user_id(channel)
+        resp = await self.twitch_user.get_channel_followers(broadcaster_id=user_id, user_id=[other_id])
+        if resp.total == 1: return True
+        return False
+
+    async def get_broadcaster(self, **_) -> str|None:
+        return self.config.account_user
+
+    async def get_moderators(self, **_) -> list[str]:
+        user_id = await self.get_user_id(self.config.account_user)
+        if user_id: return [mod.user_name async for mod in self.twitch_user.get_moderators(broadcaster_id=user_id)]
+
+    async def get_head_mod(self, **_) -> str|None:
+        return self.config.account_head_mod
+
+    async def get_vips(self, **_) -> list[str]:
+        user_id = await self.get_user_id(self.config.account_user)
+        if user_id: return [vip.user_name async for vip in self.twitch_user.get_vips(broadcaster_id=user_id)]
 
     async def get_stream_data(self, channel:str, force:bool=False) -> Stream:
         user_id = await self.get_user_id(channel, force)
