@@ -16,25 +16,26 @@ TODO
 
 # -=-=- Imports & Globals -=-=- #
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import enum
 from typing import Any, Callable
 
 from .chat import ChatMessageData, ChatMessageOutData, ChatNotificationData, MessageLevel, Platform, UserType
 from .sound import PlayTTSData
-from .chat_twitch import SetGameData
+from .chat_twitch import SetGameData, TwitchChannelQueryData
 from .chat_youtube import SetYouTubeIDData
 
 from .. import ConfigClass, configclass, BaseService, serviceclass
 from ...signals import EventBus, EventData, QueryBus, QueryData, Response
 
 
-ADMIN_USERS = ["abbyduhduck"]
-
 # -=-=- Functions & Classes -=-=- #
 
 # -=-=- Config Class -=-=- #
 
+@configclass
+class CommandsConfig(ConfigClass):
+    admin_users:list[str] = field(default_factory=list)
 
 # -=-=- Service Class -=-=- #
 
@@ -50,17 +51,28 @@ def parse_command(message:str) -> tuple[str, str]:
 
 # -=-=- Classes -=-=- #
 
-class CommandLevel(enum.Enum):
-    VIEWER = "Viewer"
-    FOLLOWER = "Follower"
-    VIP = "VIP"
-    MOD = "Mod"
-    HEADMOD = "HeadMod"
-    ADMIN = "Admin"
+class CommandLevel(enum.IntEnum):
+    VIEWER = 0
+    FOLLOWER = 1
+    VIP = 2
+    MOD = 3
+    HEADMOD = 4
+    ADMIN = 5
+
+    @property
+    def label(self) -> str:
+        return {
+            CommandLevel.VIEWER: "Viewer",
+            CommandLevel.FOLLOWER: "Follower",
+            CommandLevel.VIP: "VIP",
+            CommandLevel.MOD: "Mod",
+            CommandLevel.HEADMOD: "HeadMod",
+            CommandLevel.ADMIN: "Admin",
+        }[self]
 
 
 @serviceclass("commands")
-class CommandsService(BaseService[ConfigClass]):
+class CommandsService(BaseService[CommandsConfig]):
     commands:dict[str, Callable[[str],Any]] = {}
     command_levels:dict[str, CommandLevel] = {}
 
@@ -87,32 +99,44 @@ class CommandsService(BaseService[ConfigClass]):
 
     # -=-=- #
     
-    async def message_out(message:str, user_type:UserType=UserType.BOT, platform:Platform=Platform.TWITCH):
+    async def message_out(self, message:str, user_type:UserType=UserType.BOT, platform:Platform=Platform.TWITCH):
         await EventBus.get_instance().emit("ChatMessageOut", ChatMessageOutData(message, user_type=user_type, platform=platform))
 
-    async def display_out(message:str, level:MessageLevel=MessageLevel.INFO):
+    async def display_out(self, message:str, level:MessageLevel=MessageLevel.INFO):
         await EventBus.get_instance().emit("ChatNotification", ChatNotificationData(message, level))
 
     # -=-=- #
 
-    def has_required_level(self, user:str, level:CommandLevel) -> bool:
+    async def has_required_level(self, user:str, level:CommandLevel) -> bool:
         # Placeholder implementation - replace with actual user level checking logic
-        if level == CommandLevel.VIEWER:
-            return True
-        elif level == CommandLevel.FOLLOWER:
-            return user.lower() in ADMIN_USERS
-            return False # TODO: Implement follower check
-        elif level == CommandLevel.VIP:
-            return user.lower() in ADMIN_USERS
-            return False # TODO: Implement VIP check
-        elif level == CommandLevel.MOD:
-            return user.lower() in ADMIN_USERS
-            return False # TODO: Implement mod check
-        elif level == CommandLevel.HEADMOD:
-            return user.lower() in ADMIN_USERS
-            return False # TODO: Implement head mod check
-        elif level == CommandLevel.ADMIN:
-            return user.lower() in ADMIN_USERS
+        broadcaster = (await QueryBus.get_instance().query("GetTwitchBroadcaster", QueryData)).get()
+        head_mod = (await QueryBus.get_instance().query("GetTwitchHeadModerator", QueryData)).get()
+        mods = (await QueryBus.get_instance().query("GetTwitchModerators", QueryData)).get()
+        vips = (await QueryBus.get_instance().query("GetTwitchVIPs", QueryData)).get()
+        is_follower = (await QueryBus.get_instance().query("IsTwitchFollower", TwitchChannelQueryData(channel=user))).get()
+
+        # Normalize names
+        broadcaster = broadcaster.lower() if broadcaster else None
+        admin_users = {u.lower() for u in self.config.admin_users}
+        mod_users = {u.lower() for u in mods}
+        vip_users = {u.lower() for u in vips}
+        head_mod_user = head_mod.lower() if head_mod else None
+
+        # Determine user's highest level
+        if user in admin_users or user == broadcaster:
+            user_level = CommandLevel.ADMIN
+        elif user == head_mod_user:
+            user_level = CommandLevel.HEADMOD
+        elif user in mod_users:
+            user_level = CommandLevel.MOD
+        elif user in vip_users:
+            user_level = CommandLevel.VIP
+        elif is_follower:
+            user_level = CommandLevel.FOLLOWER
+        else:
+            user_level = CommandLevel.VIEWER
+
+        return user_level >= level
 
     # -=-=- #
 
@@ -124,12 +148,12 @@ class CommandsService(BaseService[ConfigClass]):
         if command in self.commands:
             level = self.command_levels[command]
             # Check if the user has the required level to use the command
-            if self.has_required_level(user, level):
+            if await self.has_required_level(user, level):
                 await self.commands[command](user, args)
-            else:
-                print(f"User {user} does not have the required level to use command {command}")
-        else:
-            print(f"Command {command} not found!")
+            # else:
+            #     self.display_out(f"User {user} does not have the required level to use command {command}", MessageLevel.WARNING)
+        # else:
+        #     self.display_out(f"Command {command} not found!", MessageLevel.WARNING)
 
     # -=-=- #
 
@@ -150,8 +174,9 @@ class CommandsService(BaseService[ConfigClass]):
     async def command_help(self, _user:str, _args:str):
         commands_list = ", ".join(self.commands.keys())
         help_message = f"Available commands: {commands_list}"
-        
-        await self.message_out(help_message)
+
+        broadcaster = (await QueryBus.get_instance().query("GetTwitchBroadcaster", QueryData)).get()
+        if _user.lower() != broadcaster: await self.message_out(help_message)
         await self.display_out(help_message)
 
     async def command_tts(self, user:str, args:str):
