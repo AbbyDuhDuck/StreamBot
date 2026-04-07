@@ -29,23 +29,16 @@ from threading import Thread
 
 class UserSettings:
     name:str
-    account_user:str
-    account_bot:str|None
+    # account_user:str
+    # account_bot:str|None
 
     events:UserEvents=DefaultEvents
     services:UserServices
 
     stop_event:asyncio.Event
 
-    def __init__(
-            self,
-            name:str,
-            account_user:str,
-            account_bot:str|None=None,
-    ):
+    def __init__(self, name:str):
         self.name = name
-        self.account_user = account_user
-        self.account_bot = account_bot
 
         self.services = UserServices(self)
 
