@@ -39,6 +39,7 @@ class UserSettings:
 
     def __init__(self, name:str):
         self.name = name
+        self.stop_event = asyncio.Event()
 
         self.services = UserServices(self)
 
@@ -53,7 +54,8 @@ class UserSettings:
         EventBus.get_instance().register('Stop', EventBus.lambda_action(lambda _: self.stop()))
 
     def stop(self):
-        if self.stop_event: self.stop_event.set()
+        if not self.stop_event.is_set():
+            self.stop_event.set()
 
     def run(self):
         asyncio.run(self._run_async())
@@ -73,18 +75,21 @@ class UserSettings:
     # -=-=- #
 
     async def wait_to_stop(self):
-        self.stop_event = asyncio.Event()
-        
-        done, pending = await asyncio.wait(
-            [
-                asyncio.create_task(self.stop_event.wait()),
-                asyncio.create_task(self.wait_for_enter()),
-            ],
-            return_when=asyncio.FIRST_COMPLETED
-        )
+        Thread(
+            target=self._wait_for_enter_blocking,
+            daemon=True
+        ).start()
 
-        for task in pending:
-            task.cancel()
+        await self.stop_event.wait()
+
+    def _wait_for_enter_blocking(self):
+        input("\nPress Enter to Stop...\n\n")
+
+        if self.stop_event.is_set():
+            return
+
+        print("Enter Pressed, Stopping...")
+        self.stop()
 
     async def wait_for_enter(self):
         loop = asyncio.get_running_loop()
