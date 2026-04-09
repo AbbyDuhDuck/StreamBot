@@ -72,10 +72,14 @@ def queued(_func=None, *, maxsize=0, timeout=None):
         async def worker(wrapper_key):
             state = wrapper_registry[wrapper_key]
             q = state["queue"]
+
             while True:
                 try:
-                    args, kwargs = await q.get()
+                    args, kwargs, is_first = await q.get()
+
                     state["active"] += 1
+                    state["current_is_first"] = is_first
+
                     try:
                         if timeout is not None:
                             await asyncio.wait_for(func(*args, **kwargs), timeout)
@@ -89,13 +93,16 @@ def queued(_func=None, *, maxsize=0, timeout=None):
                         print(f"[queued] Task exception: {e}")
                     finally:
                         state["active"] -= 1
+                        state["current_is_first"] = False
                         q.task_done()
+
                 except Exception as e:
                     print(f"[queued] Worker caught exception: {e}")
 
-                # Queue empty hook safely
                 try:
                     if q.empty() and state["active"] == 0:
+                        state["batch_started"] = False
+
                         cb = getattr(func, f"on_{func.__name__}_empty", None)
                         if cb:
                             if inspect.iscoroutinefunction(cb):
@@ -108,17 +115,26 @@ def queued(_func=None, *, maxsize=0, timeout=None):
         @wraps(func)
         async def wrapper(*args, **kwargs):
             if wrapper not in wrapper_registry:
-                wrapper_registry[wrapper] = {
+                state = {
                     "queue": asyncio.Queue(maxsize=maxsize),
                     "signals": _SignalHub(),
                     "active": 0,
-                    "worker": asyncio.create_task(worker(wrapper)),
-                    "is_first": wrapper_registry[wrapper]["active"] == 0 and wrapper_registry[wrapper]["queue"].empty(),
+                    "worker": None,
+                    "batch_started": False,
+                    "current_is_first": False,
                 }
+
+                wrapper_registry[wrapper] = state
+                state["worker"] = asyncio.create_task(worker(wrapper))
                 Queued._registry.append(wrapper)
 
             state = wrapper_registry[wrapper]
-            await state["queue"].put((args, kwargs))
+
+            is_first = not state["batch_started"]
+            if is_first:
+                state["batch_started"] = True
+
+            await state["queue"].put((args, kwargs, is_first))
 
         # ------------------------
         # Function-scoped helpers
@@ -146,7 +162,7 @@ def queued(_func=None, *, maxsize=0, timeout=None):
 
         def is_first() -> bool:
             state = wrapper_registry[wrapper]
-            return state["is_first"]
+            return state.get("current_is_first", False)
 
         def is_last() -> bool:
             state = wrapper_registry[wrapper]
