@@ -495,8 +495,11 @@ class TwitchService(BaseService[TwitchConfig]):
     async def is_follower(self, channel:str, **_) -> bool:
         user_id = await self.get_user_id(self.config.account_user)
         other_id = await self.get_user_id(channel)
-        resp = await self.twitch_user.get_channel_followers(broadcaster_id=user_id, user_id=[other_id])
-        if resp.total == 1: return True
+        # -=-=- #
+        resp = await self.twitch_user.get_channel_followers(broadcaster_id=user_id, user_id=other_id)
+        is_follower = len(resp.data) > 0 and resp.data[0].user_id == other_id
+        # -=-=- #
+        if is_follower: return True
         return False
 
     async def get_broadcaster(self, **_) -> str|None:
@@ -560,8 +563,7 @@ class TwitchService(BaseService[TwitchConfig]):
             'shared_chat': self.shared_chat,
             'shared_chat_host': self.shared_chat_host,
             'shared_chat_participants': self.shared_chat_participants,
-            'shared_chat_viewers': self.shared_chat_viewers
-
+            'shared_chat_viewers': self.shared_chat_viewers,
         }
         await self.event_bus.emit(f"ChatStatusChangeEvent", ChatStatusChangeData(platform=Platform.TWITCH, status=status))
 
@@ -592,7 +594,7 @@ class TwitchService(BaseService[TwitchConfig]):
         self.viewers = stream.viewer_count
         await self.set_live_state(LiveState.ONLINE, False)
         # -=-=- #
-        self.emit_status_change()
+        await self.emit_status_change()
 
     # -=-=- #
 
