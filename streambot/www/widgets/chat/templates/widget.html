@@ -12,7 +12,7 @@
     </div>
 
     {% for message in chat_history %}
-    <div class="message">
+    <div class="message{{' shared-chat' if message.shared_chat else ''}}">
         <div class="user">
             <div class="badges">{{message.platform_icon}}{{message.badges}}</div>
             <p class="username" has-ads="{{message.has_ads | lower}}" style="color:{{message.color}};">{{message.user}}</p>

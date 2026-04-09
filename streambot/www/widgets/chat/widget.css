@@ -36,6 +36,10 @@
     line-height: 1.4em;
     word-break: break-word;
 }
+.message.shared-chat {
+    opacity: 0.6;
+}
+
 .message .fa,
 .message .badges img {
     vertical-align: text-bottom;

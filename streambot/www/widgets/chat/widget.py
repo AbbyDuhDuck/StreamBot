@@ -88,7 +88,8 @@ class Widget(base.Widget):
             "badges": get_badges(event),
             "color": event.user_color,
             "has_ads": event.has_ads,
-            "emotes": event.emotes
+            "emotes": event.emotes,
+            "shared_chat": event.shared_chat,
         }
         self.add_message_history(message)
         await self.event_bus.emit("WSMessageOut", WSMessageOutData(path="chat", event="chat-message", message=message))

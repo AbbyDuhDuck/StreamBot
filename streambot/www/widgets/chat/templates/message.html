@@ -1,4 +1,4 @@
-<div class="message">
+<div class="message{{' shared-chat' if shared_chat else ''}}">
     <div class="user">
         <div class="badges">{{platform_icon}}{{badges}}</div>
         <p class="username" has-ads="{{has_ads}}" style="color:{{color}};">{{user}}</p>
