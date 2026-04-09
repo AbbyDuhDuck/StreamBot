@@ -107,8 +107,7 @@ class CommandsService(BaseService[CommandsConfig]):
 
     # -=-=- #
 
-    async def has_required_level(self, user:str, level:CommandLevel) -> bool:
-        # Placeholder implementation - replace with actual user level checking logic
+    async def get_user_level(self, user:str) -> CommandLevel:
         broadcaster = (await QueryBus.get_instance().query("GetTwitchBroadcaster", QueryData)).get()
         head_mod = (await QueryBus.get_instance().query("GetTwitchHeadModerator", QueryData)).get()
         mods = (await QueryBus.get_instance().query("GetTwitchModerators", QueryData)).get()
@@ -116,6 +115,7 @@ class CommandsService(BaseService[CommandsConfig]):
         is_follower = (await QueryBus.get_instance().query("IsTwitchFollower", TwitchChannelQueryData(channel=user))).get()
 
         # Normalize names
+        user = user.lower()
         broadcaster = broadcaster.lower() if broadcaster else None
         admin_users = {u.lower() for u in self.config.admin_users}
         mod_users = {u.lower() for u in mods}
@@ -136,6 +136,11 @@ class CommandsService(BaseService[CommandsConfig]):
         else:
             user_level = CommandLevel.VIEWER
 
+        return user_level
+
+    async def has_required_level(self, user:str, level:CommandLevel) -> bool:
+        user_level = await self.get_user_level(user)
+        print(f"User {user} has level {user_level.label} (required: {level.label})")
         return user_level >= level
 
     # -=-=- #
@@ -150,7 +155,8 @@ class CommandsService(BaseService[CommandsConfig]):
             # Check if the user has the required level to use the command
             if await self.has_required_level(user, level):
                 await self.commands[command](user, args)
-            # else:
+            else:
+                print(f"User {user} does not have the required level to use command {command} (required: {level.label})")
             #     self.display_out(f"User {user} does not have the required level to use command {command}", MessageLevel.WARNING)
         # else:
         #     self.display_out(f"Command {command} not found!", MessageLevel.WARNING)
@@ -172,8 +178,10 @@ class CommandsService(BaseService[CommandsConfig]):
     # -=-=- Commands -=-=- #
 
     async def command_help(self, _user:str, _args:str):
-        commands_list = ", ".join(self.commands.keys())
-        help_message = f"Available commands: {commands_list}"
+        user_level = await self.get_user_level(_user)
+        commands_list = [cmd for cmd, lvl in self.command_levels.items() if lvl <= user_level]
+        # commands_list = ", ".join(self.commands.keys())
+        help_message = f"Available commands: {", ".join(commands_list)}"
 
         broadcaster = (await QueryBus.get_instance().query("GetTwitchBroadcaster", QueryData)).get()
         if _user.lower() != broadcaster: await self.message_out(help_message)
